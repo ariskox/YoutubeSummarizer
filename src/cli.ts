@@ -71,7 +71,14 @@ program
 
       const useCache = !opts.skipCache;
       const modelKey = selectedSummarizer === "ollama" ? config.ollamaModel : config.openaiModel;
-      const temp = await workspacePaths(url, useCache, config.cacheDir, config.verbosity, modelKey);
+      const temp = await workspacePaths(
+        url,
+        useCache,
+        config.cacheDir,
+        config.verbosity,
+        selectedSummarizer,
+        modelKey
+      );
 
       const downloader = new YoutubeDownloader();
       const extractor = new FfmpegAudioExtractor();

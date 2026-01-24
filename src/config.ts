@@ -185,11 +185,13 @@ export const workspacePaths = async (
   useCache: boolean,
   cacheDir: string,
   verbosity: SummaryVerbosity,
+  summarizer: "openai" | "ollama",
   model: string
 ) => {
-  const key = hashString(`${url}|${verbosity}|${model}`).slice(0, 16);
+  // Media/transcript cache keyed only by URL.
+  const baseKey = hashString(url).slice(0, 16);
   const dir = useCache
-    ? path.join(cacheDir, key)
+    ? path.join(cacheDir, baseKey)
     : await createTempDir("ytsum-");
 
   await ensureDir(dir);
@@ -199,7 +201,11 @@ export const workspacePaths = async (
     videoPath: path.join(dir, "video.mp4"),
     audioPath: path.join(dir, "audio.wav"),
     transcriptPath: path.join(dir, "transcript.txt"),
-    summaryPath: path.join(dir, `summary-${verbosity}.txt`),
+    // Summary cache also keys on summarizer, model, and verbosity to avoid cross-contamination.
+    summaryPath: path.join(
+      dir,
+      `summary-${hashString(`${summarizer}|${model}|${verbosity}`).slice(0, 12)}.txt`
+    ),
     isCache: useCache,
   } as const;
 };
