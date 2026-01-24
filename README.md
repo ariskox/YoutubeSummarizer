@@ -6,7 +6,7 @@ A Node.js CLI that downloads a YouTube video, extracts audio, transcribes it wit
 
 ## Requirements
 - Node.js 18+
-- Package manager: npm or pnpm (examples use npm)
+- Package manager: pnpm (examples use pnpm)
 - External binaries:
   - `yt-dlp` (video download)
   - `ffmpeg` (audio extraction)
@@ -18,8 +18,8 @@ A Node.js CLI that downloads a YouTube video, extracts audio, transcribes it wit
 
 ## Install
 ```bash
-npm install
-npm run build
+pnpm install
+pnpm run build
 ```
 
 ## First-time configuration
