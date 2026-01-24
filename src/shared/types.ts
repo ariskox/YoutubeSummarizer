@@ -10,6 +10,8 @@ export type Summary = {
 
 export type SummaryVerbosity = "concise" | "standard" | "detailed";
 
+export type SummaryFormat = "txt" | "html";
+
 export type PipelineResult = {
   videoPath: string;
   audioPath: string;

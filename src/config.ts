@@ -4,7 +4,7 @@ import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { createTempDir, defaultCacheDir, ensureDir, ensureParentDir, hashString, fileExists } from "./shared/fs.js";
-import { SummaryVerbosity } from "./shared/types.js";
+import { SummaryFormat, SummaryVerbosity } from "./shared/types.js";
 
 export type AppConfig = {
   openaiApiKey?: string;
@@ -16,6 +16,7 @@ export type AppConfig = {
   cacheDir: string;
   verbosity: SummaryVerbosity;
   summarizer: "openai" | "ollama";
+  summaryFormat: SummaryFormat;
 };
 
 const CONFIG_DIR = path.join(os.homedir(), ".config", "ytsum");
@@ -31,6 +32,7 @@ const defaultConfig: AppConfig = {
   cacheDir: defaultCacheDir,
   verbosity: "standard",
   summarizer: "openai",
+  summaryFormat: "html",
 };
 
 type ConfigFlags = {
@@ -42,6 +44,7 @@ type ConfigFlags = {
   cacheDir?: string;
   verbosity?: SummaryVerbosity;
   summarizer?: "openai" | "ollama";
+  summaryFormat?: SummaryFormat;
 };
 
 const pickString = (value: unknown, fallback: string) => {
@@ -85,6 +88,7 @@ const envOverrides = (): Partial<AppConfig> => {
     cacheDir: process.env.CACHE_DIR,
     verbosity: process.env.VERBOSITY as SummaryVerbosity | undefined,
     summarizer: process.env.SUMMARIZER as "openai" | "ollama" | undefined,
+    summaryFormat: process.env.SUMMARY_FORMAT as SummaryFormat | undefined,
     ...(keepTemp !== undefined ? { keepTemp } : {}),
   };
 };
@@ -103,6 +107,7 @@ const mergeConfig = (
   keepTemp: flags.keepTemp ?? env.keepTemp ?? saved.keepTemp ?? defaultConfig.keepTemp,
   verbosity: (flags.verbosity ?? env.verbosity ?? saved.verbosity ?? defaultConfig.verbosity) as SummaryVerbosity,
   summarizer: (flags.summarizer ?? env.summarizer ?? saved.summarizer ?? defaultConfig.summarizer) as "openai" | "ollama",
+  summaryFormat: (flags.summaryFormat ?? env.summaryFormat ?? saved.summaryFormat ?? defaultConfig.summaryFormat) as SummaryFormat,
 });
 
 const normalizeConfig = (config: AppConfig): AppConfig => ({
@@ -117,6 +122,7 @@ const normalizeConfig = (config: AppConfig): AppConfig => ({
     return defaultConfig.verbosity;
   })(),
     summarizer: config.summarizer === "ollama" ? "ollama" : "openai",
+    summaryFormat: config.summaryFormat === "txt" ? "txt" : "html",
 });
 
 const runInteractiveSetup = async (seed: AppConfig): Promise<AppConfig> => {
@@ -141,6 +147,7 @@ const runInteractiveSetup = async (seed: AppConfig): Promise<AppConfig> => {
   const cacheDir = await ask("Cache directory", seed.cacheDir);
   const verbosity = await ask("Summary verbosity (concise|standard|detailed)", seed.verbosity);
   const summarizer = await ask("Default summarizer (openai|ollama)", seed.summarizer);
+  const summaryFormat = await ask("Summary format (html|txt)", seed.summaryFormat);
   const keepTemp = await askBool("Keep temp files", seed.keepTemp);
 
   await rl.close();
@@ -154,6 +161,7 @@ const runInteractiveSetup = async (seed: AppConfig): Promise<AppConfig> => {
     cacheDir: expandPath(cacheDir),
     verbosity: (verbosity as SummaryVerbosity) || seed.verbosity,
     summarizer: (summarizer === "ollama" || summarizer === "openai") ? summarizer : seed.summarizer,
+    summaryFormat: (summaryFormat === "txt" || summaryFormat === "html") ? summaryFormat : seed.summaryFormat,
     keepTemp,
   };
 
@@ -186,7 +194,8 @@ export const workspacePaths = async (
   cacheDir: string,
   verbosity: SummaryVerbosity,
   summarizer: "openai" | "ollama",
-  model: string
+  model: string,
+  summaryFormat: SummaryFormat
 ) => {
   // Media/transcript cache keyed only by URL.
   const baseKey = hashString(url).slice(0, 16);
@@ -204,7 +213,7 @@ export const workspacePaths = async (
     // Summary cache also keys on summarizer, model, and verbosity to avoid cross-contamination.
     summaryPath: path.join(
       dir,
-      `summary-${hashString(`${summarizer}|${model}|${verbosity}`).slice(0, 12)}.txt`
+      `summary-${hashString(`${summarizer}|${model}|${verbosity}|${summaryFormat}`).slice(0, 12)}.${summaryFormat}`
     ),
     isCache: useCache,
   } as const;

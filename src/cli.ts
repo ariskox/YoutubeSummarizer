@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { Command } from "commander";
 import { loadConfig, workspacePaths } from "./config.js";
 import { logger, setLogLevel, LogLevel } from "./shared/logger.js";
@@ -23,6 +25,7 @@ program
   .option("--whisper-binary <path>", "Path to whisper.cpp binary", "/usr/local/bin/whisper-cli")
   .option("--whisper-model <path>", "Path to whisper model", "/usr/local/lib/whisper-models/ggml-base.en.bin")
   .option("--cache-dir <path>", "Cache directory", undefined)
+  .option("--format <html|txt>", "Summary output format", undefined)
   .option("--keep-temp", "Keep temp artifacts", false)
   .option("--skip-cache", "Force bypass cache", false)
   .option("--reconfigure", "Run interactive configuration and save it", false)
@@ -42,6 +45,7 @@ program
         cacheDir: opts.cacheDir,
         verbosity: opts.verbosity,
         summarizer: opts.summarizer,
+        summaryFormat: opts.format,
       }, { reconfigure: opts.reconfigure });
 
       if (opts.cleanCache && !url) {
@@ -80,7 +84,8 @@ program
         config.cacheDir,
         config.verbosity,
         selectedSummarizer,
-        modelKey
+        modelKey,
+        config.summaryFormat
       );
 
       const downloader = new YoutubeDownloader();
@@ -121,13 +126,22 @@ program
         config.keepTemp,
         useCache,
         config.verbosity,
-        `${selectedSummarizer}:${modelKey}`
+        `${selectedSummarizer}:${modelKey}`,
+        config.summaryFormat
       );
 
       const result = await pipeline.run(url, temp);
-      // Always show summary regardless of log level.
-      // eslint-disable-next-line no-console
-      console.log("Summary:\n" + result.summary.text);
+      if (config.summaryFormat === "html") {
+        const open = promisify(execFile);
+        // Open in Safari on macOS for a quick view.
+        await open("open", ["-a", "Safari", temp.summaryPath]);
+        // eslint-disable-next-line no-console
+        console.log(`Summary opened in Safari: ${temp.summaryPath}`);
+      } else {
+        // Always show summary regardless of log level.
+        // eslint-disable-next-line no-console
+        console.log("Summary:\n" + result.summary.text);
+      }
     } catch (error) {
       const err = error as Error;
       logger.error(err.message);
