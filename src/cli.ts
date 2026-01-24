@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { loadConfig, workspacePaths } from "./config.js";
-import { logger } from "./shared/logger.js";
+import { logger, setLogLevel, LogLevel } from "./shared/logger.js";
 import { YoutubeDownloader } from "./media/YoutubeDownloader.js";
 import { FfmpegAudioExtractor } from "./media/AudioExtractor.js";
 import { WhisperTranscriber } from "./transcribe/WhisperTranscriber.js";
@@ -27,9 +27,12 @@ program
   .option("--skip-cache", "Force bypass cache", false)
   .option("--reconfigure", "Run interactive configuration and save it", false)
   .option("--clean-cache", "Delete all cached artifacts and exit (unless URL is provided)", false)
+  .option("--log-level <error|warn|info>", "Log level (default: error)", "error")
   .showHelpAfterError(true)
   .action(async (url, opts) => {
     try {
+      setLogLevel((opts.logLevel ?? "error") as LogLevel);
+
       const config = await loadConfig({
         keepTemp: opts.keepTemp,
         openaiModel: opts.openaiModel,
@@ -121,7 +124,9 @@ program
       );
 
       const result = await pipeline.run(url, temp);
-      logger.info("Summary:\n" + result.summary.text);
+      // Always show summary regardless of log level.
+      // eslint-disable-next-line no-console
+      console.log("Summary:\n" + result.summary.text);
     } catch (error) {
       const err = error as Error;
       logger.error(err.message);
