@@ -18,6 +18,7 @@ program
   .option("--summarizer <openai|ollama>", "Summarizer backend", "openai")
   .option("--openai-model <model>", "OpenAI model", "gpt-4o-mini")
   .option("--ollama-model <model>", "Ollama model", "llama3.1")
+  .option("--verbosity <concise|standard|detailed>", "Summary verbosity", "standard")
   .option("--whisper-binary <path>", "Path to whisper.cpp binary", "/usr/local/bin/whisper-cli")
   .option("--whisper-model <path>", "Path to whisper model", "/usr/local/lib/whisper-models/ggml-base.en.bin")
   .option("--cache-dir <path>", "Cache directory", undefined)
@@ -34,6 +35,7 @@ program
         whisperModel: opts.whisperModel,
         ollamaModel: opts.ollamaModel,
         cacheDir: opts.cacheDir,
+        verbosity: opts.verbosity,
       }, { reconfigure: opts.reconfigure });
 
       if (opts.reconfigure && !url) {
@@ -47,7 +49,7 @@ program
       }
 
       const useCache = !opts.skipCache;
-      const temp = await workspacePaths(url, useCache, config.cacheDir);
+      const temp = await workspacePaths(url, useCache, config.cacheDir, config.verbosity);
 
       const downloader = new YoutubeDownloader();
       const extractor = new FfmpegAudioExtractor();
@@ -69,7 +71,8 @@ program
         transcriber,
         summarizer,
         config.keepTemp,
-        useCache
+        useCache,
+        config.verbosity
       );
 
       const result = await pipeline.run(url, temp);

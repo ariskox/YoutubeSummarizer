@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import { fileExists, removeIfExists, ensureParentDir } from "../shared/fs.js";
 import { logger } from "../shared/logger.js";
-import { PipelineResult, Summary, Transcript } from "../shared/types.js";
+import { PipelineResult, Summary, Transcript, SummaryVerbosity } from "../shared/types.js";
 import { AudioExtractor } from "../media/AudioExtractor.js";
 import { MediaDownloader } from "../media/YoutubeDownloader.js";
 import { Transcriber } from "../transcribe/WhisperTranscriber.js";
@@ -14,7 +14,8 @@ export class SummarizePipeline {
     private readonly transcriber: Transcriber,
     private readonly summarizer: Summarizer,
     private readonly keepTemp: boolean,
-    private readonly useCache: boolean
+    private readonly useCache: boolean,
+    private readonly verbosity: SummaryVerbosity
   ) {}
 
   async run(url: string, paths: {
@@ -81,7 +82,7 @@ export class SummarizePipeline {
       }
       logger.warn("Summary cache was empty; regenerating");
     }
-    const summary = await this.summarizer.summarize(transcript);
+    const summary = await this.summarizer.summarize(transcript, { verbosity: this.verbosity });
     await ensureParentDir(summaryPath);
     await fs.writeFile(summaryPath, summary.text, "utf8");
     return summary;

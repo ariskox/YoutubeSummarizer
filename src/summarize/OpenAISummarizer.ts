@@ -1,4 +1,4 @@
-import { Summary, Transcript } from "../shared/types.js";
+import { Summary, SummaryVerbosity, Transcript } from "../shared/types.js";
 import { logger } from "../shared/logger.js";
 import { Summarizer } from "./Summarizer.js";
 
@@ -8,16 +8,23 @@ export class OpenAISummarizer implements Summarizer {
     private readonly model: string
   ) {}
 
-  async summarize(transcript: Transcript, options: { maxTokens?: number } = {}): Promise<Summary> {
+  async summarize(transcript: Transcript, options: { maxTokens?: number; verbosity?: SummaryVerbosity } = {}): Promise<Summary> {
     const maxTokens = options.maxTokens ?? 512;
-    logger.info(`Summarizing transcript using OpenAI model ${this.model}`);
+    const verbosity = options.verbosity ?? "standard";
+    logger.info(`Summarizing transcript using OpenAI model ${this.model} (${verbosity})`);
+
+    const style = (() => {
+      if (verbosity === "concise") return "Summarize in 3-5 tight bullet points.";
+      if (verbosity === "detailed") return "Summarize with ~8-12 bullets covering key details, numbers, and decisions.";
+      return "Summarize in 5-8 bullet points with key takeaways.";
+    })();
 
     const payload = {
       model: this.model,
       messages: [
         {
           role: "system",
-          content: "Summarize the following transcript into concise bullet points.",
+          content: `${style} Keep neutral tone.`,
         },
         {
           role: "user",

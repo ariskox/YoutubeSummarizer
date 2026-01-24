@@ -4,6 +4,7 @@ import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { createTempDir, defaultCacheDir, ensureDir, ensureParentDir, hashString, fileExists } from "./shared/fs.js";
+import { SummaryVerbosity } from "./shared/types.js";
 
 export type AppConfig = {
   openaiApiKey?: string;
@@ -13,6 +14,7 @@ export type AppConfig = {
   ollamaModel: string;
   keepTemp: boolean;
   cacheDir: string;
+  verbosity: SummaryVerbosity;
 };
 
 const CONFIG_DIR = path.join(os.homedir(), ".config", "ytsum");
@@ -26,6 +28,7 @@ const defaultConfig: AppConfig = {
   ollamaModel: "llama3.1",
   keepTemp: false,
   cacheDir: defaultCacheDir,
+  verbosity: "standard",
 };
 
 type ConfigFlags = {
@@ -35,6 +38,7 @@ type ConfigFlags = {
   whisperModel?: string;
   ollamaModel?: string;
   cacheDir?: string;
+  verbosity?: SummaryVerbosity;
 };
 
 const pickString = (value: unknown, fallback: string) => {
@@ -76,6 +80,7 @@ const envOverrides = (): Partial<AppConfig> => {
     whisperModel: process.env.WHISPER_MODEL,
     ollamaModel: process.env.OLLAMA_MODEL,
     cacheDir: process.env.CACHE_DIR,
+    verbosity: process.env.VERBOSITY as SummaryVerbosity | undefined,
     ...(keepTemp !== undefined ? { keepTemp } : {}),
   };
 };
@@ -92,6 +97,7 @@ const mergeConfig = (
   ollamaModel: pickString(flags.ollamaModel ?? env.ollamaModel ?? saved.ollamaModel, defaultConfig.ollamaModel),
   cacheDir: pickString(flags.cacheDir ?? env.cacheDir ?? saved.cacheDir, defaultCacheDir),
   keepTemp: flags.keepTemp ?? env.keepTemp ?? saved.keepTemp ?? defaultConfig.keepTemp,
+  verbosity: (flags.verbosity ?? env.verbosity ?? saved.verbosity ?? defaultConfig.verbosity) as SummaryVerbosity,
 });
 
 const normalizeConfig = (config: AppConfig): AppConfig => ({
@@ -99,6 +105,12 @@ const normalizeConfig = (config: AppConfig): AppConfig => ({
   cacheDir: expandPath(config.cacheDir),
   whisperBinary: expandPath(config.whisperBinary),
   whisperModel: expandPath(config.whisperModel),
+  verbosity: ((): SummaryVerbosity => {
+    if (config.verbosity === "concise" || config.verbosity === "standard" || config.verbosity === "detailed") {
+      return config.verbosity;
+    }
+    return defaultConfig.verbosity;
+  })(),
 });
 
 const runInteractiveSetup = async (seed: AppConfig): Promise<AppConfig> => {
@@ -121,6 +133,7 @@ const runInteractiveSetup = async (seed: AppConfig): Promise<AppConfig> => {
   const whisperModel = await ask("Whisper model path", seed.whisperModel);
   const ollamaModel = await ask("Ollama model", seed.ollamaModel);
   const cacheDir = await ask("Cache directory", seed.cacheDir);
+  const verbosity = await ask("Summary verbosity (concise|standard|detailed)", seed.verbosity);
   const keepTemp = await askBool("Keep temp files", seed.keepTemp);
 
   await rl.close();
@@ -132,6 +145,7 @@ const runInteractiveSetup = async (seed: AppConfig): Promise<AppConfig> => {
     whisperModel,
     ollamaModel,
     cacheDir: expandPath(cacheDir),
+    verbosity: (verbosity as SummaryVerbosity) || seed.verbosity,
     keepTemp,
   };
 
@@ -158,7 +172,7 @@ export const loadConfig = async (
   return normalizeConfig(mergeConfig(refreshedSaved, env, flags));
 };
 
-export const workspacePaths = async (url: string, useCache: boolean, cacheDir: string) => {
+export const workspacePaths = async (url: string, useCache: boolean, cacheDir: string, verbosity: SummaryVerbosity) => {
   const dir = useCache
     ? path.join(cacheDir, hashString(url).slice(0, 16))
     : await createTempDir("ytsum-");
@@ -170,7 +184,7 @@ export const workspacePaths = async (url: string, useCache: boolean, cacheDir: s
     videoPath: path.join(dir, "video.mp4"),
     audioPath: path.join(dir, "audio.wav"),
     transcriptPath: path.join(dir, "transcript.txt"),
-    summaryPath: path.join(dir, "summary.txt"),
+    summaryPath: path.join(dir, `summary-${verbosity}.txt`),
     isCache: useCache,
   } as const;
 };

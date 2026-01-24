@@ -8,6 +8,8 @@ export type Summary = {
   model: string;
 };
 
+export type SummaryVerbosity = "concise" | "standard" | "detailed";
+
 export type PipelineResult = {
   videoPath: string;
   audioPath: string;
