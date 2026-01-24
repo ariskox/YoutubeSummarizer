@@ -24,8 +24,8 @@ export const loadConfig = async (flags: {
   return {
     copilotApiKey: process.env.COPILOT_API_KEY,
     copilotModel: flags.copilotModel ?? "gpt-4o-mini",
-    whisperBinary: flags.whisperBinary ?? "./main",
-    whisperModel: flags.whisperModel ?? "./models/ggml-base.en.bin",
+    whisperBinary: flags.whisperBinary ?? "/usr/local/bin/whisper-cli",
+    whisperModel: flags.whisperModel ?? "/usr/local/lib/whisper-models/ggml-base.en.bin",
     ollamaModel: flags.ollamaModel ?? "llama3.1",
     keepTemp,
     cacheDir: flags.cacheDir ?? defaultCacheDir,
