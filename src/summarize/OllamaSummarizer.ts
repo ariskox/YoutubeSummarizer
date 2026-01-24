@@ -1,4 +1,4 @@
-import { Summary, SummaryVerbosity, Transcript } from "../shared/types.js";
+import { Summary, SummaryFormat, SummaryVerbosity, Transcript } from "../shared/types.js";
 import { logger } from "../shared/logger.js";
 import { buildSummaryPrompt } from "./SummaryPrompt.js";
 import { Summarizer } from "./Summarizer.js";
@@ -10,16 +10,20 @@ export class OllamaSummarizer implements Summarizer {
     private readonly modelChecker?: (model: string, endpoint: string) => Promise<void>
   ) {}
 
-  async summarize(transcript: Transcript, options: { maxTokens?: number; verbosity?: SummaryVerbosity } = {}): Promise<Summary> {
-    const maxTokens = options.maxTokens ?? 512;
-    const verbosity = options.verbosity ?? "standard";
+  async summarize(
+    transcript: Transcript,
+    options?: { maxTokens?: number; verbosity?: SummaryVerbosity; summaryFormat?: SummaryFormat }
+  ): Promise<Summary> {
+    const maxTokens = options?.maxTokens ?? 512;
+    const verbosity = options?.verbosity ?? "standard";
+    const summaryFormat = options?.summaryFormat ?? "txt";
     logger.info(`Summarizing transcript using Ollama model ${this.model} (${verbosity})`);
 
     if (this.modelChecker) {
       await this.modelChecker(this.model, this.endpoint);
     }
 
-    const style = buildSummaryPrompt(verbosity);
+    const style = buildSummaryPrompt(verbosity, summaryFormat);
 
     const response = await fetch(`${this.endpoint}/api/generate`, {
       method: "POST",

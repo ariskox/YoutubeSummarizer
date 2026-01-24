@@ -1,5 +1,8 @@
-import { Summary, SummaryVerbosity, Transcript } from "../shared/types.js";
+import { Summary, SummaryVerbosity, SummaryFormat, Transcript } from "../shared/types.js";
 
 export interface Summarizer {
-  summarize(transcript: Transcript, options?: { maxTokens?: number; verbosity?: SummaryVerbosity }): Promise<Summary>;
+  summarize(
+    transcript: Transcript,
+    options?: { maxTokens?: number; verbosity?: SummaryVerbosity; summaryFormat?: SummaryFormat }
+  ): Promise<Summary>;
 }

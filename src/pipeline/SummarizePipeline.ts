@@ -108,7 +108,10 @@ export class SummarizePipeline {
         return { value: { text, model: "cache" }, fromCache: true };
       }
     }
-    const summary = await this.summarizer.summarize(transcript, { verbosity: this.verbosity });
+    const summary = await this.summarizer.summarize(transcript, {
+      verbosity: this.verbosity,
+      summaryFormat: this.summaryFormat,
+    });
     await ensureParentDir(summaryPath);
     const output = this.summaryFormat === "html" ? this.wrapHtml(summary.text, summary.model) : summary.text;
     await fs.writeFile(summaryPath, output, "utf8");
