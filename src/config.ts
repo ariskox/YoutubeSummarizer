@@ -1,5 +1,5 @@
 import path from "node:path";
-import { createTempDir } from "./shared/fs.js";
+import { createTempDir, defaultCacheDir, ensureDir, hashString } from "./shared/fs.js";
 
 export type AppConfig = {
   copilotApiKey?: string;
@@ -8,6 +8,7 @@ export type AppConfig = {
   whisperModel: string;
   ollamaModel: string;
   keepTemp: boolean;
+  cacheDir: string;
 };
 
 export const loadConfig = async (flags: {
@@ -16,6 +17,7 @@ export const loadConfig = async (flags: {
   whisperBinary?: string;
   whisperModel?: string;
   ollamaModel?: string;
+  cacheDir?: string;
 }) => {
   const keepTemp = Boolean(flags.keepTemp);
 
@@ -26,15 +28,23 @@ export const loadConfig = async (flags: {
     whisperModel: flags.whisperModel ?? "./models/ggml-base.en.bin",
     ollamaModel: flags.ollamaModel ?? "llama3.1",
     keepTemp,
+    cacheDir: flags.cacheDir ?? defaultCacheDir,
   } satisfies AppConfig;
 };
 
-export const tempWorkspace = async () => {
-  const dir = await createTempDir("ytsum-");
+export const workspacePaths = async (url: string, useCache: boolean, cacheDir: string) => {
+  const dir = useCache
+    ? path.join(cacheDir, hashString(url).slice(0, 16))
+    : await createTempDir("ytsum-");
+
+  await ensureDir(dir);
+
   return {
     root: dir,
     videoPath: path.join(dir, "video.mp4"),
     audioPath: path.join(dir, "audio.wav"),
     transcriptPath: path.join(dir, "transcript.txt"),
+    summaryPath: path.join(dir, "summary.txt"),
+    isCache: useCache,
   } as const;
 };

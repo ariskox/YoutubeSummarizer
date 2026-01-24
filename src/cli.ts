@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { loadConfig, tempWorkspace } from "./config.js";
+import { loadConfig, workspacePaths } from "./config.js";
 import { logger } from "./shared/logger.js";
 import { YoutubeDownloader } from "./media/YoutubeDownloader.js";
 import { FfmpegAudioExtractor } from "./media/AudioExtractor.js";
@@ -20,7 +20,9 @@ program
   .option("--ollama-model <model>", "Ollama model", "llama3.1")
   .option("--whisper-binary <path>", "Path to whisper.cpp binary", "./main")
   .option("--whisper-model <path>", "Path to whisper model", "./models/ggml-base.en.bin")
+  .option("--cache-dir <path>", "Cache directory", undefined)
   .option("--keep-temp", "Keep temp artifacts", false)
+  .option("--skip-cache", "Force bypass cache", false)
   .showHelpAfterError(true)
   .action(async (url, opts) => {
     try {
@@ -30,9 +32,11 @@ program
         whisperBinary: opts.whisperBinary,
         whisperModel: opts.whisperModel,
         ollamaModel: opts.ollamaModel,
+        cacheDir: opts.cacheDir,
       });
 
-      const temp = await tempWorkspace();
+      const useCache = !opts.skipCache;
+      const temp = await workspacePaths(url, useCache, config.cacheDir);
 
       const downloader = new YoutubeDownloader();
       const extractor = new FfmpegAudioExtractor();
@@ -52,7 +56,8 @@ program
         extractor,
         transcriber,
         summarizer,
-        config.keepTemp
+        config.keepTemp,
+        useCache
       );
 
       const result = await pipeline.run(url, temp);

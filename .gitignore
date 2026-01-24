@@ -6,6 +6,7 @@ yarn.lock
 
 # Build outputs
 dist
+.cache
 
 # Logs
 npm-debug.log*
