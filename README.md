@@ -5,14 +5,15 @@
 A Node.js CLI that downloads a YouTube video, extracts audio, transcribes it with whisper.cpp, and summarizes the transcript using OpenAI (default) or a local Ollama model. Includes caching, configurable verbosity, summary format selection (HTML default), and interactive setup.
 
 ## Requirements
+- Tested on macOS (Apple Silicon and Intel)
 - Node.js 18+
 - Package manager: pnpm (examples use pnpm)
 - External binaries:
-  - `yt-dlp` (video download)
-  - `ffmpeg` (audio extraction)
-  - `whisper-cli` (whisper.cpp binary) — default path: `/usr/local/bin/whisper-cli`
-  - Whisper model file — default path: `/usr/local/lib/whisper-models/ggml-base.en.bin`
-  - Optional: `ollama` running locally if you choose the `ollama` summarizer
+  - `yt-dlp` (video download) — https://github.com/yt-dlp/yt-dlp#installation
+  - `ffmpeg` (audio extraction) — https://ffmpeg.org/download.html#build-mac
+  - `whisper-cli` (whisper.cpp binary) — https://github.com/ggerganov/whisper.cpp#build-and-install (default path: `/usr/local/bin/whisper-cli`)
+  - Whisper model file — https://huggingface.co/ggerganov/whisper.cpp or whisper.cpp `models` script (default path: `/usr/local/lib/whisper-models/ggml-base.en.bin`)
+  - Optional: `ollama` running locally — https://ollama.com/download
 - API keys (optional):
   - `OPENAI_API_KEY` for OpenAI summarization (default backend)
 
