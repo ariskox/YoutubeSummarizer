@@ -15,6 +15,7 @@ export type AppConfig = {
   keepTemp: boolean;
   cacheDir: string;
   verbosity: SummaryVerbosity;
+  summarizer: "openai" | "ollama";
 };
 
 const CONFIG_DIR = path.join(os.homedir(), ".config", "ytsum");
@@ -29,6 +30,7 @@ const defaultConfig: AppConfig = {
   keepTemp: false,
   cacheDir: defaultCacheDir,
   verbosity: "standard",
+  summarizer: "openai",
 };
 
 type ConfigFlags = {
@@ -39,6 +41,7 @@ type ConfigFlags = {
   ollamaModel?: string;
   cacheDir?: string;
   verbosity?: SummaryVerbosity;
+  summarizer?: "openai" | "ollama";
 };
 
 const pickString = (value: unknown, fallback: string) => {
@@ -81,6 +84,7 @@ const envOverrides = (): Partial<AppConfig> => {
     ollamaModel: process.env.OLLAMA_MODEL,
     cacheDir: process.env.CACHE_DIR,
     verbosity: process.env.VERBOSITY as SummaryVerbosity | undefined,
+    summarizer: process.env.SUMMARIZER as "openai" | "ollama" | undefined,
     ...(keepTemp !== undefined ? { keepTemp } : {}),
   };
 };
@@ -98,6 +102,7 @@ const mergeConfig = (
   cacheDir: pickString(flags.cacheDir ?? env.cacheDir ?? saved.cacheDir, defaultCacheDir),
   keepTemp: flags.keepTemp ?? env.keepTemp ?? saved.keepTemp ?? defaultConfig.keepTemp,
   verbosity: (flags.verbosity ?? env.verbosity ?? saved.verbosity ?? defaultConfig.verbosity) as SummaryVerbosity,
+  summarizer: (flags.summarizer ?? env.summarizer ?? saved.summarizer ?? defaultConfig.summarizer) as "openai" | "ollama",
 });
 
 const normalizeConfig = (config: AppConfig): AppConfig => ({
@@ -111,6 +116,7 @@ const normalizeConfig = (config: AppConfig): AppConfig => ({
     }
     return defaultConfig.verbosity;
   })(),
+    summarizer: config.summarizer === "ollama" ? "ollama" : "openai",
 });
 
 const runInteractiveSetup = async (seed: AppConfig): Promise<AppConfig> => {
@@ -134,6 +140,7 @@ const runInteractiveSetup = async (seed: AppConfig): Promise<AppConfig> => {
   const ollamaModel = await ask("Ollama model", seed.ollamaModel);
   const cacheDir = await ask("Cache directory", seed.cacheDir);
   const verbosity = await ask("Summary verbosity (concise|standard|detailed)", seed.verbosity);
+  const summarizer = await ask("Default summarizer (openai|ollama)", seed.summarizer);
   const keepTemp = await askBool("Keep temp files", seed.keepTemp);
 
   await rl.close();
@@ -146,6 +153,7 @@ const runInteractiveSetup = async (seed: AppConfig): Promise<AppConfig> => {
     ollamaModel,
     cacheDir: expandPath(cacheDir),
     verbosity: (verbosity as SummaryVerbosity) || seed.verbosity,
+    summarizer: (summarizer === "ollama" || summarizer === "openai") ? summarizer : seed.summarizer,
     keepTemp,
   };
 
@@ -172,9 +180,16 @@ export const loadConfig = async (
   return normalizeConfig(mergeConfig(refreshedSaved, env, flags));
 };
 
-export const workspacePaths = async (url: string, useCache: boolean, cacheDir: string, verbosity: SummaryVerbosity) => {
+export const workspacePaths = async (
+  url: string,
+  useCache: boolean,
+  cacheDir: string,
+  verbosity: SummaryVerbosity,
+  model: string
+) => {
+  const key = hashString(`${url}|${verbosity}|${model}`).slice(0, 16);
   const dir = useCache
-    ? path.join(cacheDir, hashString(url).slice(0, 16))
+    ? path.join(cacheDir, key)
     : await createTempDir("ytsum-");
 
   await ensureDir(dir);

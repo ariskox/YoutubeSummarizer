@@ -16,7 +16,7 @@ program
   .name("ytsum")
   .description("Download, transcribe, and summarize a YouTube video")
   .argument("[url]", "YouTube video URL (omit when using --reconfigure)")
-  .option("--summarizer <openai|ollama>", "Summarizer backend", "openai")
+  .option("--summarizer <openai|ollama>", "Summarizer backend (default from config)")
   .option("--openai-model <model>", "OpenAI model", "gpt-4o-mini")
   .option("--ollama-model <model>", "Ollama model", "llama3.1")
   .option("--verbosity <concise|standard|detailed>", "Summary verbosity", "standard")
@@ -38,6 +38,7 @@ program
         ollamaModel: opts.ollamaModel,
         cacheDir: opts.cacheDir,
         verbosity: opts.verbosity,
+        summarizer: opts.summarizer,
       }, { reconfigure: opts.reconfigure });
 
       if (opts.cleanCache && !url) {
@@ -66,16 +67,35 @@ program
         await pruneCache(config.cacheDir, { ttlMs: DEFAULT_CACHE_TTL_MS });
       }
 
+      const selectedSummarizer = config.summarizer;
+
       const useCache = !opts.skipCache;
-      const temp = await workspacePaths(url, useCache, config.cacheDir, config.verbosity);
+      const modelKey = selectedSummarizer === "ollama" ? config.ollamaModel : config.openaiModel;
+      const temp = await workspacePaths(url, useCache, config.cacheDir, config.verbosity, modelKey);
 
       const downloader = new YoutubeDownloader();
       const extractor = new FfmpegAudioExtractor();
       const transcriber = new WhisperTranscriber(config.whisperBinary, config.whisperModel);
 
+      const ensureOllamaModel = async (model: string, endpoint: string) => {
+        const res = await fetch(`${endpoint}/api/show`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model }),
+        });
+        if (res.status === 404) {
+          throw new Error(`Ollama model '${model}' not found at ${endpoint}. Please pull or create it.`);
+        }
+        if (!res.ok) {
+          const body = await res.text();
+          throw new Error(`Ollama model check failed: ${res.status} ${body}`);
+        }
+      };
+
       const summarizer = (() => {
-        if (opts.summarizer === "ollama") {
-          return new OllamaSummarizer(config.ollamaModel);
+        if (selectedSummarizer === "ollama") {
+          const endpoint = "http://localhost:11434";
+          return new OllamaSummarizer(config.ollamaModel, endpoint, ensureOllamaModel);
         }
         if (!config.openaiApiKey) {
           throw new Error("OPENAI_API_KEY is required for openai summarizer");

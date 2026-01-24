@@ -5,13 +5,18 @@ import { Summarizer } from "./Summarizer.js";
 export class OllamaSummarizer implements Summarizer {
   constructor(
     private readonly model: string,
-    private readonly endpoint: string = "http://localhost:11434"
+    private readonly endpoint: string = "http://localhost:11434",
+    private readonly modelChecker?: (model: string, endpoint: string) => Promise<void>
   ) {}
 
   async summarize(transcript: Transcript, options: { maxTokens?: number; verbosity?: SummaryVerbosity } = {}): Promise<Summary> {
     const maxTokens = options.maxTokens ?? 512;
     const verbosity = options.verbosity ?? "standard";
     logger.info(`Summarizing transcript using Ollama model ${this.model} (${verbosity})`);
+
+    if (this.modelChecker) {
+      await this.modelChecker(this.model, this.endpoint);
+    }
 
     const style = (() => {
       if (verbosity === "concise") return "Summarize in 3-5 bullet points.";
