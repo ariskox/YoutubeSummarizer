@@ -1,0 +1,23 @@
+{
+  "name": "youtube-summarizer",
+  "version": "0.1.0",
+  "description": "CLI to download, transcribe, and summarize YouTube videos",
+  "type": "module",
+  "bin": {
+    "ytsum": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/cli.js"
+  },
+  "dependencies": {
+    "commander": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.8.1",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
