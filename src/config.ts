@@ -41,6 +41,13 @@ const pickString = (value: unknown, fallback: string) => {
   return typeof value === "string" && value.trim().length > 0 ? value : fallback;
 };
 
+const expandPath = (p: string) => {
+  if (p.startsWith("~")) {
+    return path.join(os.homedir(), p.slice(1));
+  }
+  return p;
+};
+
 const readSavedConfig = async (): Promise<Partial<AppConfig>> => {
   try {
     const raw = await fs.readFile(CONFIG_FILE, "utf8");
@@ -83,8 +90,15 @@ const mergeConfig = (
   whisperBinary: pickString(flags.whisperBinary ?? env.whisperBinary ?? saved.whisperBinary, defaultConfig.whisperBinary),
   whisperModel: pickString(flags.whisperModel ?? env.whisperModel ?? saved.whisperModel, defaultConfig.whisperModel),
   ollamaModel: pickString(flags.ollamaModel ?? env.ollamaModel ?? saved.ollamaModel, defaultConfig.ollamaModel),
-  cacheDir: pickString(flags.cacheDir ?? env.cacheDir ?? saved.cacheDir, defaultConfig.cacheDir),
+  cacheDir: pickString(flags.cacheDir ?? env.cacheDir ?? saved.cacheDir, defaultCacheDir),
   keepTemp: flags.keepTemp ?? env.keepTemp ?? saved.keepTemp ?? defaultConfig.keepTemp,
+});
+
+const normalizeConfig = (config: AppConfig): AppConfig => ({
+  ...config,
+  cacheDir: expandPath(config.cacheDir),
+  whisperBinary: expandPath(config.whisperBinary),
+  whisperModel: expandPath(config.whisperModel),
 });
 
 const runInteractiveSetup = async (seed: AppConfig): Promise<AppConfig> => {
@@ -117,11 +131,11 @@ const runInteractiveSetup = async (seed: AppConfig): Promise<AppConfig> => {
     whisperBinary,
     whisperModel,
     ollamaModel,
-    cacheDir,
+    cacheDir: expandPath(cacheDir),
     keepTemp,
   };
 
-  await ensureDir(cacheDir);
+  await ensureDir(config.cacheDir);
   await writeConfig(config);
   return config;
 };
@@ -136,12 +150,12 @@ export const loadConfig = async (
   const needsSetup = opts.reconfigure || !(await fileExists(CONFIG_FILE));
 
   if (needsSetup) {
-    const seed = mergeConfig(saved, env, flags);
+    const seed = normalizeConfig(mergeConfig(saved, env, flags));
     await runInteractiveSetup(seed);
   }
 
   const refreshedSaved = await readSavedConfig();
-  return mergeConfig(refreshedSaved, env, flags);
+  return normalizeConfig(mergeConfig(refreshedSaved, env, flags));
 };
 
 export const workspacePaths = async (url: string, useCache: boolean, cacheDir: string) => {
