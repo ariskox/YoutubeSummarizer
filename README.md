@@ -1,6 +1,6 @@
 # YouTube Summarizer CLI
 
-[![CI](https://github.com/ariskox/YoutubeSummarizer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ariskox/YoutubeSummarizer/actions/workflows/ci.yml)
+[![CI](https://github.com/ariskox/YoutubeSummarizer/actions/workflows/ci.yml/badge.svg?branch=main)]([https://github.com](https://img.shields.io/github/actions/workflow/status/ariskox/YoutubeSummarizer/ci.yml?branch=main&style=for-the-badge))
 
 A Node.js CLI that downloads a YouTube video, extracts audio, transcribes it with whisper.cpp, and summarizes the transcript using OpenAI (default) or a local Ollama model. Includes caching, configurable verbosity, summary format selection (HTML default), and interactive setup.
 
