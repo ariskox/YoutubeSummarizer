@@ -1,6 +1,6 @@
 # YouTube Summarizer CLI
 
-A Node.js CLI that downloads a YouTube video, extracts audio, transcribes it with whisper.cpp, and summarizes the transcript using OpenAI (default) or a local Ollama model. Includes caching, configurable verbosity, and interactive setup.
+A Node.js CLI that downloads a YouTube video, extracts audio, transcribes it with whisper.cpp, and summarizes the transcript using OpenAI (default) or a local Ollama model. Includes caching, configurable verbosity, summary format selection (HTML default), and interactive setup.
 
 ## Requirements
 - Node.js 18+
@@ -25,12 +25,17 @@ Run interactive setup (stores config at `~/.config/ytsum/config.json`):
 ```bash
 node dist/cli.js --reconfigure
 ```
-You can override any saved value with environment variables (e.g., `OPENAI_API_KEY`, `OPENAI_MODEL`, `WHISPER_BINARY`, `WHISPER_MODEL`, `OLLAMA_MODEL`, `CACHE_DIR`, `VERBOSITY`, `KEEP_TEMP`).
+You can override any saved value with environment variables (e.g., `OPENAI_API_KEY`, `OPENAI_MODEL`, `WHISPER_BINARY`, `WHISPER_MODEL`, `OLLAMA_MODEL`, `CACHE_DIR`, `VERBOSITY`, `SUMMARY_FORMAT`, `KEEP_TEMP`).
 
 ## Usage
 Basic run (OpenAI default):
 ```bash
 node dist/cli.js "https://www.youtube.com/watch?v=..."
+```
+Summary format (default `html` opens Safari with a styled page; `txt` prints to stdout):
+```bash
+node dist/cli.js --format html "<url>"
+node dist/cli.js --format txt "<url>"
 ```
 Select summarizer:
 ```bash
@@ -58,10 +63,11 @@ Other flags:
 - `--openai-model` OpenAI model name (default `gpt-4o-mini`)
 - `--ollama-model` Ollama model name (default `llama3.1`)
 - `--keep-temp` keep temp artifacts
+- `--log-level <error|warn|info>` adjust logging
 
 ## Cache behavior
 - Cached artifacts live under `CACHE_DIR` (default `~/.cache/ytsum`), hashed per URL.
-- Summaries are keyed by verbosity level.
+- Summaries are keyed by summarizer, model, verbosity, and format; file extension matches the chosen format.
 - Entries older than 48h are pruned automatically on runs (unless `--skip-cache`).
 - `--clean-cache` deletes all cached artifacts.
 
