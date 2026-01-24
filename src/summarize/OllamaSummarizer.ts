@@ -1,5 +1,6 @@
 import { Summary, SummaryVerbosity, Transcript } from "../shared/types.js";
 import { logger } from "../shared/logger.js";
+import { buildSummaryPrompt } from "./SummaryPrompt.js";
 import { Summarizer } from "./Summarizer.js";
 
 export class OllamaSummarizer implements Summarizer {
@@ -18,11 +19,7 @@ export class OllamaSummarizer implements Summarizer {
       await this.modelChecker(this.model, this.endpoint);
     }
 
-    const style = (() => {
-      if (verbosity === "concise") return "Summarize in 3-5 bullet points.";
-      if (verbosity === "detailed") return "Summarize in 8-12 bullet points with specifics.";
-      return "Summarize in 5-8 bullet points with key takeaways.";
-    })();
+    const style = buildSummaryPrompt(verbosity);
 
     const response = await fetch(`${this.endpoint}/api/generate`, {
       method: "POST",

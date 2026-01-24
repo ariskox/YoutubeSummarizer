@@ -16,7 +16,8 @@ export class SummarizePipeline {
     private readonly summarizer: Summarizer,
     private readonly keepTemp: boolean,
     private readonly useCache: boolean,
-    private readonly verbosity: SummaryVerbosity
+    private readonly verbosity: SummaryVerbosity,
+    private readonly summarizerLabel: string
   ) {}
 
   async run(url: string, paths: {
@@ -40,7 +41,7 @@ export class SummarizePipeline {
       this.getOrTranscribe(audio.path, paths.transcriptPath)
     );
 
-    const summary = await this.withSpinner("Summarize", "green", () =>
+    const summary = await this.withSpinner(`Summarize (${this.summarizerLabel})`, "green", () =>
       this.getOrSummarize(transcript.value, paths.summaryPath)
     );
 

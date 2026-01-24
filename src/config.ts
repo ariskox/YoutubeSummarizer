@@ -26,7 +26,7 @@ const defaultConfig: AppConfig = {
   openaiModel: "gpt-4o-mini",
   whisperBinary: "/usr/local/bin/whisper-cli",
   whisperModel: "/usr/local/lib/whisper-models/ggml-base.en.bin",
-  ollamaModel: "llama3.1",
+  ollamaModel: "gemma3:4b",
   keepTemp: false,
   cacheDir: defaultCacheDir,
   verbosity: "standard",

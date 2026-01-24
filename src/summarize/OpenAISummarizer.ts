@@ -1,5 +1,6 @@
 import { Summary, SummaryVerbosity, Transcript } from "../shared/types.js";
 import { logger } from "../shared/logger.js";
+import { buildSummaryPrompt } from "./SummaryPrompt.js";
 import { Summarizer } from "./Summarizer.js";
 
 export class OpenAISummarizer implements Summarizer {
@@ -13,11 +14,7 @@ export class OpenAISummarizer implements Summarizer {
     const verbosity = options.verbosity ?? "standard";
     logger.info(`Summarizing transcript using OpenAI model ${this.model} (${verbosity})`);
 
-    const style = (() => {
-      if (verbosity === "concise") return "Summarize in 3-5 tight bullet points.";
-      if (verbosity === "detailed") return "Summarize with ~8-12 bullets covering key details, numbers, and decisions.";
-      return "Summarize in 5-8 bullet points with key takeaways.";
-    })();
+    const style = buildSummaryPrompt(verbosity);
 
     const payload = {
       model: this.model,

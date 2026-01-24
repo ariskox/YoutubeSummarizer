@@ -120,7 +120,8 @@ program
         summarizer,
         config.keepTemp,
         useCache,
-        config.verbosity
+        config.verbosity,
+        `${selectedSummarizer}:${modelKey}`
       );
 
       const result = await pipeline.run(url, temp);
