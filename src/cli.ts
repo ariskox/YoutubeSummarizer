@@ -14,7 +14,7 @@ const program = new Command();
 program
   .name("ytsum")
   .description("Download, transcribe, and summarize a YouTube video")
-  .argument("<url>", "YouTube video URL")
+  .argument("[url]", "YouTube video URL (omit when using --reconfigure)")
   .option("--summarizer <openai|ollama>", "Summarizer backend", "openai")
   .option("--openai-model <model>", "OpenAI model", "gpt-4o-mini")
   .option("--ollama-model <model>", "Ollama model", "llama3.1")
@@ -23,6 +23,7 @@ program
   .option("--cache-dir <path>", "Cache directory", undefined)
   .option("--keep-temp", "Keep temp artifacts", false)
   .option("--skip-cache", "Force bypass cache", false)
+  .option("--reconfigure", "Run interactive configuration and save it", false)
   .showHelpAfterError(true)
   .action(async (url, opts) => {
     try {
@@ -33,7 +34,17 @@ program
         whisperModel: opts.whisperModel,
         ollamaModel: opts.ollamaModel,
         cacheDir: opts.cacheDir,
-      });
+      }, { reconfigure: opts.reconfigure });
+
+      if (opts.reconfigure && !url) {
+        // Configuration-only run; exit after setup.
+        logger.info("Configuration saved.");
+        return;
+      }
+
+      if (!url) {
+        throw new Error("URL is required unless using --reconfigure");
+      }
 
       const useCache = !opts.skipCache;
       const temp = await workspacePaths(url, useCache, config.cacheDir);
