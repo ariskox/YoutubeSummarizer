@@ -1,10 +1,12 @@
 # YouTube Summarizer CLI
 
+[![CI](https://github.com/ariskox/YoutubeSummarizer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ariskox/YoutubeSummarizer/actions/workflows/ci.yml)
+
 A Node.js CLI that downloads a YouTube video, extracts audio, transcribes it with whisper.cpp, and summarizes the transcript using OpenAI (default) or a local Ollama model. Includes caching, configurable verbosity, summary format selection (HTML default), and interactive setup.
 
 ## Requirements
 - Node.js 18+
-- Package manager: npm or pnpm (examples use npm)
+- Package manager: pnpm (examples use pnpm)
 - External binaries:
   - `yt-dlp` (video download)
   - `ffmpeg` (audio extraction)
@@ -16,8 +18,8 @@ A Node.js CLI that downloads a YouTube video, extracts audio, transcribes it wit
 
 ## Install
 ```bash
-npm install
-npm run build
+pnpm install
+pnpm run build
 ```
 
 ## First-time configuration
