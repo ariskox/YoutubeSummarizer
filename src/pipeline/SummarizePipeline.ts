@@ -30,26 +30,47 @@ export class SummarizePipeline {
   }): Promise<PipelineResult> {
     logger.info("Starting pipeline");
 
-    const video = await this.withSpinner("Download video", "cyan", () =>
-      this.getOrDownload(url, paths.videoPath)
+    // If we already have a cached transcript, we can skip download/extract steps and reuse it.
+    const cachedTranscript = this.useCache ? await this.readCachedTranscript(paths.transcriptPath) : null;
+
+    const video = await this.withSpinner(
+      "Download audio",
+      "cyan",
+      cachedTranscript
+        ? async () => ({ path: paths.videoPath, fromCache: true } as const)
+        : () => this.getOrDownload(url, paths.videoPath),
+      cachedTranscript ? " (skip)" : undefined
     );
 
-    const audio = await this.withSpinner("Extract audio", "magenta", () =>
-      this.getOrExtract(video.path, paths.audioPath)
+    const audio = await this.withSpinner(
+      "Extract audio",
+      "magenta",
+      cachedTranscript
+        ? async () => ({ path: paths.audioPath, fromCache: true } as const)
+        : () => this.getOrExtract(video.path, paths.audioPath),
+      cachedTranscript ? " (skip)" : undefined
     );
 
-    const transcript = await this.withSpinner("Transcribe audio", "yellow", () =>
-      this.getOrTranscribe(audio.path, paths.transcriptPath)
+    const transcript = await this.withSpinner(
+      "Transcribe audio",
+      "yellow",
+      cachedTranscript
+        ? async () => ({ value: cachedTranscript, fromCache: true })
+        : () => this.getOrTranscribe(audio.path, paths.transcriptPath),
+      cachedTranscript ? " (skip)" : undefined
     );
+
+    if (!this.keepTemp) {
+      await removeIfExists(paths.videoPath);
+      await removeIfExists(paths.audioPath);
+    }
 
     const summary = await this.withSpinner(`Summarize (${this.summarizerLabel})`, "green", () =>
       this.getOrSummarize(transcript.value, paths.summaryPath)
     );
 
     if (!this.keepTemp && !paths.isCache) {
-      await removeIfExists(paths.videoPath);
-      await removeIfExists(paths.audioPath);
-      await removeIfExists(paths.transcriptPath);
+      // Transcript is retained; drop temp summary only for txt to avoid clutter.
       if (this.summaryFormat === "txt") {
         await removeIfExists(paths.summaryPath);
       }
@@ -58,11 +79,11 @@ export class SummarizePipeline {
     return { videoPath: video.path, audioPath: audio.path, transcript: transcript.value, summary: summary.value } satisfies PipelineResult;
   }
 
-  private async withSpinner<T extends { fromCache?: boolean }>(label: string, color: Color, fn: () => Promise<T>): Promise<T> {
+  private async withSpinner<T extends { fromCache?: boolean }>(label: string, color: Color, fn: () => Promise<T>, cacheLabel?: string): Promise<T> {
     const spinner = ora({ text: label, color }).start();
     try {
       const result = await fn();
-      const suffix = result.fromCache ? " (cache)" : "";
+      const suffix = result.fromCache ? cacheLabel ?? " (cache)" : "";
       spinner.succeed(`${label}${suffix}`);
       return result;
     } catch (err) {
@@ -116,6 +137,16 @@ export class SummarizePipeline {
     const output = this.summaryFormat === "html" ? this.wrapHtml(summary.text, summary.model) : summary.text;
     await fs.writeFile(summaryPath, output, "utf8");
     return { value: summary, fromCache: false };
+  }
+
+  private async readCachedTranscript(transcriptPath: string): Promise<Transcript | null> {
+    if (await fileExists(transcriptPath)) {
+      const text = await fs.readFile(transcriptPath, "utf8");
+      if (text.trim()) {
+        return { text, source: transcriptPath };
+      }
+    }
+    return null;
   }
 
   private wrapHtml(content: string, model: string) {
