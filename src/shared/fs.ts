@@ -39,3 +39,29 @@ export const hashString = (value: string) => {
 };
 
 export const defaultCacheDir = path.join(os.homedir(), ".cache", "ytsum");
+
+export const DEFAULT_CACHE_TTL_MS = 1000 * 60 * 60 * 48; // 48 hours
+
+export const pruneCache = async (
+  cacheDir: string,
+  opts: { force?: boolean; ttlMs?: number } = {}
+) => {
+  const ttlMs = opts.ttlMs ?? DEFAULT_CACHE_TTL_MS;
+  if (!(await fileExists(cacheDir))) return;
+
+  if (opts.force) {
+    await fs.rm(cacheDir, { recursive: true, force: true });
+    return;
+  }
+
+  const now = Date.now();
+  const entries = await fs.readdir(cacheDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(cacheDir, entry.name);
+    const stats = await fs.stat(fullPath);
+    const age = now - stats.mtimeMs;
+    if (age > ttlMs) {
+      await fs.rm(fullPath, { recursive: true, force: true });
+    }
+  }
+};

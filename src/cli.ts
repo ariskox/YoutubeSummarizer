@@ -8,6 +8,7 @@ import { WhisperTranscriber } from "./transcribe/WhisperTranscriber.js";
 import { OllamaSummarizer } from "./summarize/OllamaSummarizer.js";
 import { OpenAISummarizer } from "./summarize/OpenAISummarizer.js";
 import { SummarizePipeline } from "./pipeline/SummarizePipeline.js";
+import { pruneCache, DEFAULT_CACHE_TTL_MS } from "./shared/fs.js";
 
 const program = new Command();
 
@@ -25,6 +26,7 @@ program
   .option("--keep-temp", "Keep temp artifacts", false)
   .option("--skip-cache", "Force bypass cache", false)
   .option("--reconfigure", "Run interactive configuration and save it", false)
+  .option("--clean-cache", "Delete all cached artifacts and exit (unless URL is provided)", false)
   .showHelpAfterError(true)
   .action(async (url, opts) => {
     try {
@@ -38,6 +40,12 @@ program
         verbosity: opts.verbosity,
       }, { reconfigure: opts.reconfigure });
 
+      if (opts.cleanCache && !url) {
+        await pruneCache(config.cacheDir, { force: true });
+        logger.info("Cache cleared.");
+        return;
+      }
+
       if (opts.reconfigure && !url) {
         // Configuration-only run; exit after setup.
         logger.info("Configuration saved.");
@@ -45,7 +53,17 @@ program
       }
 
       if (!url) {
-        throw new Error("URL is required unless using --reconfigure");
+        throw new Error("URL is required unless using --reconfigure or --clean-cache");
+      }
+
+      if (opts.cleanCache) {
+        await pruneCache(config.cacheDir, { force: true });
+        logger.info("Cache cleared.");
+      }
+
+      // Opportunistic cache expiry (48h by default) before use.
+      if (!opts.skipCache) {
+        await pruneCache(config.cacheDir, { ttlMs: DEFAULT_CACHE_TTL_MS });
       }
 
       const useCache = !opts.skipCache;
