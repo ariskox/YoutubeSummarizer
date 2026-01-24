@@ -1,6 +1,6 @@
 import { Summary, Transcript } from "../shared/types.js";
 import { logger } from "../shared/logger.js";
-import { Summarizer } from "./CopilotSummarizer.js";
+import { Summarizer } from "./Summarizer.js";
 
 export class OllamaSummarizer implements Summarizer {
   constructor(

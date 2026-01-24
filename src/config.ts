@@ -2,8 +2,8 @@ import path from "node:path";
 import { createTempDir, defaultCacheDir, ensureDir, hashString } from "./shared/fs.js";
 
 export type AppConfig = {
-  copilotApiKey?: string;
-  copilotModel: string;
+  openaiApiKey?: string;
+  openaiModel: string;
   whisperBinary: string;
   whisperModel: string;
   ollamaModel: string;
@@ -13,7 +13,7 @@ export type AppConfig = {
 
 export const loadConfig = async (flags: {
   keepTemp?: boolean;
-  copilotModel?: string;
+  openaiModel?: string;
   whisperBinary?: string;
   whisperModel?: string;
   ollamaModel?: string;
@@ -22,8 +22,8 @@ export const loadConfig = async (flags: {
   const keepTemp = Boolean(flags.keepTemp);
 
   return {
-    copilotApiKey: process.env.COPILOT_API_KEY,
-    copilotModel: flags.copilotModel ?? "gpt-4o-mini",
+    openaiApiKey: process.env.OPENAI_API_KEY,
+    openaiModel: flags.openaiModel ?? "gpt-4o-mini",
     whisperBinary: flags.whisperBinary ?? "/usr/local/bin/whisper-cli",
     whisperModel: flags.whisperModel ?? "/usr/local/lib/whisper-models/ggml-base.en.bin",
     ollamaModel: flags.ollamaModel ?? "llama3.1",

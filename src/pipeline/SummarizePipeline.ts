@@ -5,7 +5,7 @@ import { PipelineResult, Summary, Transcript } from "../shared/types.js";
 import { AudioExtractor } from "../media/AudioExtractor.js";
 import { MediaDownloader } from "../media/YoutubeDownloader.js";
 import { Transcriber } from "../transcribe/WhisperTranscriber.js";
-import { Summarizer } from "../summarize/CopilotSummarizer.js";
+import { Summarizer } from "../summarize/Summarizer.js";
 
 export class SummarizePipeline {
   constructor(

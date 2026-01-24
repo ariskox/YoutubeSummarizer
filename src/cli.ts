@@ -5,8 +5,8 @@ import { logger } from "./shared/logger.js";
 import { YoutubeDownloader } from "./media/YoutubeDownloader.js";
 import { FfmpegAudioExtractor } from "./media/AudioExtractor.js";
 import { WhisperTranscriber } from "./transcribe/WhisperTranscriber.js";
-import { CopilotSummarizer } from "./summarize/CopilotSummarizer.js";
 import { OllamaSummarizer } from "./summarize/OllamaSummarizer.js";
+import { OpenAISummarizer } from "./summarize/OpenAISummarizer.js";
 import { SummarizePipeline } from "./pipeline/SummarizePipeline.js";
 
 const program = new Command();
@@ -15,8 +15,8 @@ program
   .name("ytsum")
   .description("Download, transcribe, and summarize a YouTube video")
   .argument("<url>", "YouTube video URL")
-  .option("--summarizer <copilot|ollama>", "Summarizer backend", "copilot")
-  .option("--copilot-model <model>", "Copilot model", "gpt-4o-mini")
+  .option("--summarizer <openai|ollama>", "Summarizer backend", "openai")
+  .option("--openai-model <model>", "OpenAI model", "gpt-4o-mini")
   .option("--ollama-model <model>", "Ollama model", "llama3.1")
   .option("--whisper-binary <path>", "Path to whisper.cpp binary", "/usr/local/bin/whisper-cli")
   .option("--whisper-model <path>", "Path to whisper model", "/usr/local/lib/whisper-models/ggml-base.en.bin")
@@ -28,7 +28,7 @@ program
     try {
       const config = await loadConfig({
         keepTemp: opts.keepTemp,
-        copilotModel: opts.copilotModel,
+        openaiModel: opts.openaiModel,
         whisperBinary: opts.whisperBinary,
         whisperModel: opts.whisperModel,
         ollamaModel: opts.ollamaModel,
@@ -42,14 +42,15 @@ program
       const extractor = new FfmpegAudioExtractor();
       const transcriber = new WhisperTranscriber(config.whisperBinary, config.whisperModel);
 
-      const summarizer = opts.summarizer === "ollama"
-        ? new OllamaSummarizer(config.ollamaModel)
-        : (() => {
-            if (!config.copilotApiKey) {
-              throw new Error("COPILOT_API_KEY is required for copilot summarizer");
-            }
-            return new CopilotSummarizer(config.copilotApiKey, config.copilotModel);
-          })();
+      const summarizer = (() => {
+        if (opts.summarizer === "ollama") {
+          return new OllamaSummarizer(config.ollamaModel);
+        }
+        if (!config.openaiApiKey) {
+          throw new Error("OPENAI_API_KEY is required for openai summarizer");
+        }
+        return new OpenAISummarizer(config.openaiApiKey, config.openaiModel);
+      })();
 
       const pipeline = new SummarizePipeline(
         downloader,
