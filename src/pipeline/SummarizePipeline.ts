@@ -1,6 +1,5 @@
-import { promises as fs } from "node:fs";
 import ora, { Color } from "ora";
-import { fileExists, removeIfExists, ensureParentDir } from "../shared/fs.js";
+import { removeIfExists } from "../shared/fs.js";
 import { logger } from "../shared/logger.js";
 import { PipelineResult, Transcript, SummaryVerbosity, SummaryFormat, Summary } from "../shared/types.js";
 import { AudioExtractor } from "../media/AudioExtractor.js";
@@ -8,6 +7,7 @@ import { MediaDownloader } from "../media/YoutubeDownloader.js";
 import { Transcriber } from "../transcribe/WhisperTranscriber.js";
 import { Summarizer } from "../summarize/Summarizer.js";
 import { SummaryFormatter } from "../summarize/SummaryFormatter.js";
+import { CacheManager } from "./CacheManager.js";
 
 export class SummarizePipeline {
   constructor(
@@ -22,9 +22,11 @@ export class SummarizePipeline {
     private readonly summaryFormat: SummaryFormat
   ) {
     this.formatter = new SummaryFormatter(summaryFormat);
+    this.cache = new CacheManager(useCache);
   }
 
   private readonly formatter: SummaryFormatter;
+  private readonly cache: CacheManager;
 
   async run(url: string, paths: {
     videoPath: string;
@@ -36,12 +38,12 @@ export class SummarizePipeline {
     logger.info("Starting pipeline");
 
     // If we already have a cached transcript, we can skip the media steps entirely.
-    const cachedTranscript = await this.readCachedTranscript(paths.transcriptPath);
+    const cachedTranscript = await this.cache.readTranscript(paths.transcriptPath);
 
     const video = await this.cacheableStep(
       "Download audio",
       "cyan",
-      () => this.cachedMediaPath(paths.videoPath, Boolean(cachedTranscript)),
+      () => this.cache.media(paths.videoPath, { allowMissing: Boolean(cachedTranscript) }),
       () => this.download(url, paths.videoPath),
       { cacheLabel: cachedTranscript ? " (skip)" : undefined }
     );
@@ -49,7 +51,7 @@ export class SummarizePipeline {
     const audio = await this.cacheableStep(
       "Extract audio",
       "magenta",
-      () => this.cachedMediaPath(paths.audioPath, Boolean(cachedTranscript)),
+      () => this.cache.media(paths.audioPath, { allowMissing: Boolean(cachedTranscript) }),
       () => this.extract(video.value.path, paths.audioPath),
       { cacheLabel: cachedTranscript ? " (skip)" : undefined }
     );
@@ -57,14 +59,14 @@ export class SummarizePipeline {
     const transcript = await this.cacheableStep(
       "Transcribe audio",
       "yellow",
-      () => this.readCachedTranscript(paths.transcriptPath),
+      () => this.cache.readTranscript(paths.transcriptPath),
       async () => {
         const result = await this.transcriber.transcribe(audio.value.path, paths.transcriptPath);
         return result;
       },
       {
         cacheLabel: cachedTranscript ? " (skip)" : undefined,
-        persist: async (result) => this.writeFile(paths.transcriptPath, result.text),
+        persist: async (result) => this.cache.persistTranscript(paths.transcriptPath, result.text),
       }
     );
 
@@ -76,7 +78,7 @@ export class SummarizePipeline {
     const summary = await this.cacheableStep(
       `Summarize (${this.summarizerLabel})`,
       "green",
-      () => this.readCachedSummary(paths.summaryPath),
+      () => this.cache.readSummary(paths.summaryPath),
       async () => {
         const result = await this.summarizer.summarize(transcript.value, {
           verbosity: this.verbosity,
@@ -85,7 +87,7 @@ export class SummarizePipeline {
         return result;
       },
       {
-        persist: async (result) => this.writeFile(paths.summaryPath, this.formatter.render(result)),
+        persist: async (result) => this.cache.persistSummary(paths.summaryPath, this.formatter.render(result)),
       }
     );
 
@@ -124,36 +126,6 @@ export class SummarizePipeline {
     }
   }
 
-  private async cachedMediaPath(targetPath: string, skipCheck: boolean): Promise<{ path: string } | null> {
-    if (skipCheck) {
-      return { path: targetPath };
-    }
-    if (!this.useCache) return null;
-    return (await fileExists(targetPath)) ? { path: targetPath } : null;
-  }
-
-  private async readCachedTranscript(transcriptPath: string): Promise<Transcript | null> {
-    if (!this.useCache) return null;
-    if (await fileExists(transcriptPath)) {
-      const text = await fs.readFile(transcriptPath, "utf8");
-      if (text.trim()) {
-        return { text, source: transcriptPath };
-      }
-    }
-    return null;
-  }
-
-  private async readCachedSummary(summaryPath: string): Promise<Summary | null> {
-    if (!this.useCache) return null;
-    if (await fileExists(summaryPath)) {
-      const text = await fs.readFile(summaryPath, "utf8");
-      if (text.trim()) {
-        return { text, model: "cache" };
-      }
-    }
-    return null;
-  }
-
   private async download(url: string, outputPath: string) {
     const path = await this.downloader.download(url, outputPath);
     return { path } as const;
@@ -162,10 +134,5 @@ export class SummarizePipeline {
   private async extract(videoPath: string, outputPath: string) {
     const path = await this.extractor.extract(videoPath, outputPath);
     return { path } as const;
-  }
-
-  private async writeFile(targetPath: string, content: string) {
-    await ensureParentDir(targetPath);
-    await fs.writeFile(targetPath, content, "utf8");
   }
 }
