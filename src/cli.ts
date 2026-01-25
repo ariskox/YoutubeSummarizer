@@ -20,7 +20,7 @@ program
   .argument("[url]", "YouTube video URL (omit when using --reconfigure)")
   .option("--summarizer <openai|ollama>", "Summarizer backend (default from config)")
   .option("--openai-model <model>", "OpenAI model", "gpt-4o-mini")
-  .option("--ollama-model <model>", "Ollama model", "llama3.1")
+  .option("--ollama-model <model>", "Ollama model", "gemma3:4b")
   .option("--verbosity <concise|standard|detailed>", "Summary verbosity", "standard")
   .option("--whisper-binary <path>", "Path to whisper.cpp binary", "/usr/local/bin/whisper-cli")
   .option("--whisper-model <path>", "Path to whisper model", "/usr/local/lib/whisper-models/ggml-base.en.bin")
