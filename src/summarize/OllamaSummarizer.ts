@@ -1,5 +1,6 @@
 import { Summary, SummaryFormat, SummaryVerbosity, Transcript } from "../shared/types.js";
-import { logger } from "../shared/logger.js";
+import { getLogLevel, logger } from "../shared/logger.js";
+import { createHttpDebugger } from "../shared/httpDebug.js";
 import { buildSummaryPrompt } from "./SummaryPrompt.js";
 import { Summarizer, normalizeSummaryOptions, SummaryRequestOptions } from "./Summarizer.js";
 
@@ -8,7 +9,11 @@ export class OllamaSummarizer implements Summarizer {
     private readonly model: string,
     private readonly endpoint: string = "http://localhost:11434",
     private readonly modelChecker?: (model: string, endpoint: string) => Promise<void>
-  ) {}
+  ) {
+    this.debug = createHttpDebugger(getLogLevel() === "debug");
+  }
+
+  private readonly debug;
 
   async summarize(
     transcript: Transcript,
@@ -23,22 +28,44 @@ export class OllamaSummarizer implements Summarizer {
 
     const style = buildSummaryPrompt(verbosity, summaryFormat);
 
-    const response = await fetch(`${this.endpoint}/api/generate`, {
+    const url = `${this.endpoint}/api/generate`;
+    const requestBody = {
+      model: this.model,
+      prompt: `${style}\n\nTranscript:\n${transcript.text}\n\nKeep it under ${maxTokens} tokens.`,
+      stream: false,
+    };
+
+    this.debug.request("ollama", {
+      url,
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: this.model,
-        prompt: `${style}\n\nTranscript:\n${transcript.text}\n\nKeep it under ${maxTokens} tokens.`,
-        stream: false,
-      }),
+      body: requestBody,
+    });
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+    });
+
+    const raw = await response.text();
+
+    this.debug.response("ollama", {
+      status: response.status,
+      headers: response.headers,
+      body: raw,
     });
 
     if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`Ollama API error: ${response.status} ${body}`);
+      throw new Error(`Ollama API error: ${response.status} ${raw}`);
     }
 
-    const json = (await response.json()) as { response?: string };
+    let json: { response?: string };
+    try {
+      json = JSON.parse(raw) as { response?: string };
+    } catch {
+      throw new Error(`Ollama API error: ${response.status} ${raw}`);
+    }
     const content = json.response?.trim();
     if (!content) {
       throw new Error("Ollama returned an empty summary");

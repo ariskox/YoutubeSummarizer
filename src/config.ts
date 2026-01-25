@@ -213,7 +213,7 @@ export const workspacePaths = async (
     // Summary cache also keys on summarizer, model, and verbosity to avoid cross-contamination.
     summaryPath: path.join(
       dir,
-      `summary-${hashString(`${summarizer}|${model}|${verbosity}|${summaryFormat}`).slice(0, 12)}.${summaryFormat}`
+      `summary-${summarizer}_${model}_${verbosity}_${summaryFormat}.${summaryFormat}`
     ),
     isCache: useCache,
   } as const;

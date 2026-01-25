@@ -1,11 +1,13 @@
-export type LogLevel = "info" | "warn" | "error";
+export type LogLevel = "debug" | "info" | "warn" | "error";
 
-const levels: Record<LogLevel, number> = { info: 3, warn: 2, error: 1 };
+const levels: Record<LogLevel, number> = { debug: 4, info: 3, warn: 2, error: 1 };
 let currentLevel: LogLevel = "error";
 
 export const setLogLevel = (level: LogLevel) => {
   currentLevel = level;
 };
+
+export const getLogLevel = () => currentLevel;
 
 const timestamp = () => new Date().toISOString();
 
@@ -17,6 +19,7 @@ const log = (level: LogLevel, message: string) => {
 };
 
 export const logger = {
+  debug: (msg: string) => log("debug", msg),
   info: (msg: string) => log("info", msg),
   warn: (msg: string) => log("warn", msg),
   error: (msg: string) => log("error", msg),

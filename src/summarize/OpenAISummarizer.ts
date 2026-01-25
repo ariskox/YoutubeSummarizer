@@ -1,5 +1,6 @@
 import { Summary, SummaryVerbosity, SummaryFormat, Transcript } from "../shared/types.js";
-import { logger } from "../shared/logger.js";
+import { getLogLevel, logger } from "../shared/logger.js";
+import { createHttpDebugger } from "../shared/httpDebug.js";
 import { buildSummaryPrompt } from "./SummaryPrompt.js";
 import { Summarizer, normalizeSummaryOptions, SummaryRequestOptions } from "./Summarizer.js";
 
@@ -7,13 +8,18 @@ export class OpenAISummarizer implements Summarizer {
   constructor(
     private readonly apiKey: string,
     private readonly model: string
-  ) {}
+  ) {
+    this.debug = createHttpDebugger(getLogLevel() === "debug");
+  }
+
+  private readonly debug;
 
   async summarize(
     transcript: Transcript,
     options?: SummaryRequestOptions
   ): Promise<Summary> {
-    const { maxTokens, verbosity, summaryFormat } = normalizeSummaryOptions(options);
+    const { verbosity, summaryFormat } = normalizeSummaryOptions(options);
+    const maxTokens = options?.maxTokens ?? 1536;
     logger.info(`Summarizing transcript using OpenAI model ${this.model} (${verbosity})`);
 
     const style = buildSummaryPrompt(verbosity, summaryFormat);
@@ -34,7 +40,19 @@ export class OpenAISummarizer implements Summarizer {
       temperature: 0.2,
     };
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const url = "https://api.openai.com/v1/chat/completions";
+
+    this.debug.request("openai", {
+      url,
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: payload,
+    });
+
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
@@ -43,15 +61,24 @@ export class OpenAISummarizer implements Summarizer {
       body: JSON.stringify(payload),
     });
 
+    const raw = await response.text();
+
+    this.debug.response("openai", {
+      status: response.status,
+      headers: response.headers,
+      body: raw,
+    });
+
     if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`OpenAI API error: ${response.status} ${body}`);
+      throw new Error(`OpenAI API error: ${response.status} ${raw}`);
     }
 
-    const json = (await response.json()) as {
-      choices: { message: { content: string } }[];
-      model?: string;
-    };
+    let json: { choices: { message: { content: string } }[]; model?: string };
+    try {
+      json = JSON.parse(raw) as { choices: { message: { content: string } }[]; model?: string };
+    } catch {
+      throw new Error(`OpenAI API parse error: ${response.status} ${raw}`);
+    }
 
     const content = json.choices?.[0]?.message?.content?.trim();
     if (!content) {
