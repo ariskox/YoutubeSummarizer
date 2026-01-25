@@ -1,7 +1,7 @@
 import { Summary, SummaryVerbosity, SummaryFormat, Transcript } from "../shared/types.js";
 import { logger } from "../shared/logger.js";
 import { buildSummaryPrompt } from "./SummaryPrompt.js";
-import { Summarizer } from "./Summarizer.js";
+import { Summarizer, normalizeSummaryOptions, SummaryRequestOptions } from "./Summarizer.js";
 
 export class OpenAISummarizer implements Summarizer {
   constructor(
@@ -11,11 +11,9 @@ export class OpenAISummarizer implements Summarizer {
 
   async summarize(
     transcript: Transcript,
-    options?: { maxTokens?: number; verbosity?: SummaryVerbosity; summaryFormat?: SummaryFormat }
+    options?: SummaryRequestOptions
   ): Promise<Summary> {
-    const maxTokens = options?.maxTokens ?? 512;
-    const verbosity = options?.verbosity ?? "standard";
-    const summaryFormat = options?.summaryFormat ?? "txt";
+    const { maxTokens, verbosity, summaryFormat } = normalizeSummaryOptions(options);
     logger.info(`Summarizing transcript using OpenAI model ${this.model} (${verbosity})`);
 
     const style = buildSummaryPrompt(verbosity, summaryFormat);
