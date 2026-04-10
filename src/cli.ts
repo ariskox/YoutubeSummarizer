@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import { execFile } from "node:child_process";
+import { spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { Command } from "commander";
-import { loadConfig, workspacePaths } from "./config.js";
+import { loadConfig, saveCopilotApiKey, workspacePaths } from "./config.js";
 import { logger, setLogLevel, LogLevel } from "./shared/logger.js";
 import { YoutubeDownloader } from "./media/YoutubeDownloader.js";
 import { FfmpegAudioExtractor } from "./media/AudioExtractor.js";
@@ -12,13 +13,33 @@ import { OpenAISummarizer } from "./summarize/OpenAISummarizer.js";
 import { CopilotSummarizer } from "./summarize/CopilotSummarizer.js";
 import { SummarizePipeline } from "./pipeline/SummarizePipeline.js";
 import { pruneCache, DEFAULT_CACHE_TTL_MS } from "./shared/fs.js";
+import { runCommand } from "./shared/exec.js";
 
 const program = new Command();
+
+const runInteractiveCommand = (command: string, args: string[]) =>
+  new Promise<void>((resolve, reject) => {
+    const child = spawn(command, args, {
+      stdio: "inherit",
+    });
+
+    child.on("error", (error) => {
+      reject(error);
+    });
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error(`Command failed: ${command} ${args.join(" ")} (code ${code})`));
+    });
+  });
 
 program
   .name("ytsum")
   .description("Download, transcribe, and summarize a YouTube video")
-  .argument("[url]", "YouTube video URL (omit when using --reconfigure)")
+  .argument("[url]", "YouTube video URL (omit when using --reconfigure/--copilot-login)")
   .option("--summarizer <openai|ollama|copilot>", "Summarizer backend (default from config)")
   .option("--openai-model <model>", "OpenAI model", "gpt-4o-mini")
   .option("--copilot-model <model>", "GitHub Copilot model", "openai/gpt-4.1-mini")
@@ -31,12 +52,49 @@ program
   .option("--keep-temp", "Keep temp artifacts", false)
   .option("--skip-cache", "Force bypass cache", false)
   .option("--reconfigure", "Run interactive configuration and save it", false)
+  .option("--copilot-login", "Login with GitHub CLI and save Copilot token", false)
   .option("--clean-cache", "Delete all cached artifacts and exit (unless URL is provided)", false)
   .option("--log-level <error|warn|info>", "Log level (default: error)", "error")
   .showHelpAfterError(true)
   .action(async (url, opts) => {
     try {
       setLogLevel((opts.logLevel ?? "error") as LogLevel);
+
+      if (opts.copilotLogin) {
+        logger.info("Starting GitHub login for Copilot access...");
+        try {
+          await runInteractiveCommand("gh", [
+            "auth",
+            "login",
+            "--hostname",
+            "github.com",
+            "--web",
+            "--git-protocol",
+            "https",
+          ]);
+        } catch (error) {
+          const err = error as Error & { code?: string };
+          if (err.code === "ENOENT") {
+            throw new Error("GitHub CLI (`gh`) is required for --copilot-login. Install it and retry.");
+          }
+          throw error;
+        }
+        const tokenResult = await runCommand("gh", [
+          "auth",
+          "token",
+          "--hostname",
+          "github.com",
+        ]);
+        const token = tokenResult.stdout.trim();
+        if (!token) {
+          throw new Error("GitHub login succeeded but no token was returned by `gh auth token`");
+        }
+        await saveCopilotApiKey(token);
+        logger.info("Copilot token saved to config.");
+        if (!url) {
+          return;
+        }
+      }
 
       const config = await loadConfig({
         keepTemp: opts.keepTemp,
@@ -64,7 +122,7 @@ program
       }
 
       if (!url) {
-        throw new Error("URL is required unless using --reconfigure or --clean-cache");
+        throw new Error("URL is required unless using --reconfigure, --copilot-login, or --clean-cache");
       }
 
       if (opts.cleanCache) {

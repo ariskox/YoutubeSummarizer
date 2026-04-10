@@ -201,6 +201,19 @@ export const loadConfig = async (
   return normalizeConfig(mergeConfig(refreshedSaved, env, flags));
 };
 
+export const saveCopilotApiKey = async (apiKey: string): Promise<void> => {
+  const trimmed = apiKey.trim();
+  if (!trimmed) {
+    throw new Error("Copilot API key cannot be empty");
+  }
+  await ensureDir(CONFIG_DIR);
+  const saved = await readSavedConfig();
+  await writeConfig({
+    ...saved,
+    copilotApiKey: trimmed,
+  });
+};
+
 export const workspacePaths = async (
   url: string,
   useCache: boolean,

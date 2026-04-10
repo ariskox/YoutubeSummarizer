@@ -47,6 +47,10 @@ node dist/cli.js --summarizer ollama "<url>"
 node dist/cli.js --summarizer openai "<url>"
 node dist/cli.js --summarizer copilot "<url>"
 ```
+Copilot login (recommended, saves token into `~/.config/ytsum/config.json` as `copilotApiKey`):
+```bash
+node dist/cli.js --copilot-login
+```
 Verbosity levels (default: `standard`; also `concise`, `detailed`):
 ```bash
 node dist/cli.js --verbosity detailed "<url>"
@@ -69,6 +73,7 @@ Other flags:
 - `--copilot-model` GitHub Copilot model name (default `openai/gpt-4.1-mini`)
 - `--ollama-model` Ollama model name (default `gemma3:4b`)
 - `--keep-temp` keep temp artifacts
+- `--copilot-login` authenticate with GitHub CLI and save Copilot token
 - `--log-level <error|warn|info>` adjust logging
 
 ## Cache behavior
