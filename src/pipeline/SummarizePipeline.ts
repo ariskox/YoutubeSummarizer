@@ -80,21 +80,24 @@ export class SummarizePipeline {
       throw new Error("Summarizer is required when transcriptOnly mode is disabled");
     }
 
-    const summary = this.transcriptOnly ? null : await this.cacheableStep(
-      `Summarize (${this.summarizerLabel})`,
-      "green",
-      () => this.cache.readSummary(paths.summaryPath),
-      async () => {
-        const result = await this.summarizer!.summarize(transcript.value, {
-          verbosity: this.verbosity,
-          summaryFormat: this.summaryFormat,
-        });
-        return result;
-      },
-      {
-        persist: async (result) => this.cache.persistSummary(paths.summaryPath, this.formatter.render(result)),
-      }
-    );
+    let summary: { value: Summary; fromCache: boolean } | null = null;
+    if (!this.transcriptOnly) {
+      summary = await this.cacheableStep(
+        `Summarize (${this.summarizerLabel})`,
+        "green",
+        () => this.cache.readSummary(paths.summaryPath),
+        async () => {
+          const result = await this.summarizer!.summarize(transcript.value, {
+            verbosity: this.verbosity,
+            summaryFormat: this.summaryFormat,
+          });
+          return result;
+        },
+        {
+          persist: async (result) => this.cache.persistSummary(paths.summaryPath, this.formatter.render(result)),
+        }
+      );
+    }
 
     if (!this.keepTemp && !paths.isCache && this.summaryFormat === "txt") {
       await removeIfExists(paths.summaryPath);

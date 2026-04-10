@@ -143,10 +143,12 @@ program
         await open("open", ["-a", "Safari", temp.summaryPath]);
         // eslint-disable-next-line no-console
         console.log(`Summary opened in Safari: ${temp.summaryPath}`);
-      } else {
+      } else if (result.summary) {
         // Always show summary regardless of log level.
         // eslint-disable-next-line no-console
-        console.log("Summary:\n" + result.summary!.text);
+        console.log("Summary:\n" + result.summary.text);
+      } else {
+        throw new Error("Summary generation did not produce an output");
       }
     } catch (error) {
       const err = error as Error;
