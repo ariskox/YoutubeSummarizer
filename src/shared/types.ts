@@ -17,6 +17,6 @@ export type PipelineResult = {
   audioPath: string;
   transcript: Transcript;
 } & (
-  | { transcriptOnly: true; summary?: undefined }
+  | { transcriptOnly: true; summary?: never }
   | { transcriptOnly: false; summary: Summary }
 );

@@ -22,6 +22,9 @@ export class SummarizePipeline {
     private readonly summarizerLabel: string,
     private readonly summaryFormat: SummaryFormat
   ) {
+    if (!transcriptOnly && !summarizer) {
+      throw new Error("Summarizer is required for summary generation");
+    }
     this.formatter = new SummaryFormatter(summaryFormat);
     this.cache = new CacheManager(useCache);
   }
@@ -76,18 +79,15 @@ export class SummarizePipeline {
       await removeIfExists(paths.audioPath);
     }
 
-    if (!this.transcriptOnly && !this.summarizer) {
-      throw new Error("Summarizer is required for summary generation");
-    }
-
     let summary: { value: Summary; fromCache: boolean } | null = null;
     if (!this.transcriptOnly) {
+      const summarizer = this.requireSummarizer();
       summary = await this.cacheableStep(
         `Summarize (${this.summarizerLabel})`,
         "green",
         () => this.cache.readSummary(paths.summaryPath),
         async () => {
-          const result = await this.summarizer!.summarize(transcript.value, {
+          const result = await summarizer.summarize(transcript.value, {
             verbosity: this.verbosity,
             summaryFormat: this.summaryFormat,
           });
@@ -157,5 +157,12 @@ export class SummarizePipeline {
   private async extract(videoPath: string, outputPath: string) {
     const path = await this.extractor.extract(videoPath, outputPath);
     return { path } as const;
+  }
+
+  private requireSummarizer(): Summarizer {
+    if (!this.summarizer) {
+      throw new Error("Summarizer is required for summary generation");
+    }
+    return this.summarizer;
   }
 }
