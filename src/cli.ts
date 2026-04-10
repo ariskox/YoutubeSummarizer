@@ -30,6 +30,7 @@ program
   .option("--skip-cache", "Force bypass cache", false)
   .option("--reconfigure", "Run interactive configuration and save it", false)
   .option("--clean-cache", "Delete all cached artifacts and exit (unless URL is provided)", false)
+  .option("--transcript-only", "Skip summarization and print only the transcript", false)
   .option("--log-level <error|warn|info>", "Log level (default: error)", "error")
   .showHelpAfterError(true)
   .action(async (url, opts) => {
@@ -75,6 +76,7 @@ program
       }
 
       const selectedSummarizer = config.summarizer;
+      const transcriptOnly = Boolean(opts.transcriptOnly);
 
       const useCache = !opts.skipCache;
       const modelKey = selectedSummarizer === "ollama" ? config.ollamaModel : config.openaiModel;
@@ -107,7 +109,7 @@ program
         }
       };
 
-      const summarizer = (() => {
+      const summarizer = transcriptOnly ? null : (() => {
         if (selectedSummarizer === "ollama") {
           const endpoint = "http://localhost:11434";
           return new OllamaSummarizer(config.ollamaModel, endpoint, ensureOllamaModel);
@@ -123,6 +125,7 @@ program
         extractor,
         transcriber,
         summarizer,
+        transcriptOnly,
         config.keepTemp,
         useCache,
         config.verbosity,
@@ -131,13 +134,19 @@ program
       );
 
       const result = await pipeline.run(url, temp);
-      if (config.summaryFormat === "html") {
+      if (transcriptOnly) {
+        // eslint-disable-next-line no-console
+        console.log("Transcript:\n" + result.transcript.text);
+      } else if (config.summaryFormat === "html") {
         const open = promisify(execFile);
         // Open in Safari on macOS for a quick view.
         await open("open", ["-a", "Safari", temp.summaryPath]);
         // eslint-disable-next-line no-console
         console.log(`Summary opened in Safari: ${temp.summaryPath}`);
       } else {
+        if (!result.summary) {
+          throw new Error("Summary generation did not produce an output");
+        }
         // Always show summary regardless of log level.
         // eslint-disable-next-line no-console
         console.log("Summary:\n" + result.summary.text);

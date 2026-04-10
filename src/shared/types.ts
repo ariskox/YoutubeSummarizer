@@ -16,5 +16,5 @@ export type PipelineResult = {
   videoPath: string;
   audioPath: string;
   transcript: Transcript;
-  summary: Summary;
+  summary?: Summary;
 };

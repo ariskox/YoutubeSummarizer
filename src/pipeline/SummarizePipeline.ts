@@ -14,7 +14,8 @@ export class SummarizePipeline {
     private readonly downloader: MediaDownloader,
     private readonly extractor: AudioExtractor,
     private readonly transcriber: Transcriber,
-    private readonly summarizer: Summarizer,
+    private readonly summarizer: Summarizer | null,
+    private readonly transcriptOnly: boolean,
     private readonly keepTemp: boolean,
     private readonly useCache: boolean,
     private readonly verbosity: SummaryVerbosity,
@@ -75,11 +76,14 @@ export class SummarizePipeline {
       await removeIfExists(paths.audioPath);
     }
 
-    const summary = await this.cacheableStep(
+    const summary = this.transcriptOnly ? null : await this.cacheableStep(
       `Summarize (${this.summarizerLabel})`,
       "green",
       () => this.cache.readSummary(paths.summaryPath),
       async () => {
+        if (!this.summarizer) {
+          throw new Error("Summarizer is required unless --transcript-only is enabled");
+        }
         const result = await this.summarizer.summarize(transcript.value, {
           verbosity: this.verbosity,
           summaryFormat: this.summaryFormat,
@@ -95,7 +99,12 @@ export class SummarizePipeline {
       await removeIfExists(paths.summaryPath);
     }
 
-    return { videoPath: video.value.path, audioPath: audio.value.path, transcript: transcript.value, summary: summary.value } satisfies PipelineResult;
+    return {
+      videoPath: video.value.path,
+      audioPath: audio.value.path,
+      transcript: transcript.value,
+      ...(summary ? { summary: summary.value } : {}),
+    } satisfies PipelineResult;
   }
 
   private async cacheableStep<T>(

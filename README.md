@@ -49,6 +49,10 @@ Verbosity levels (default: `standard`; also `concise`, `detailed`):
 ```bash
 node dist/cli.js --verbosity detailed "<url>"
 ```
+Transcript-only mode (skip summarization and print transcript to stdout):
+```bash
+node dist/cli.js --transcript-only "<url>"
+```
 Caching options:
 ```bash
 # Bypass cache
@@ -66,6 +70,7 @@ Other flags:
 - `--openai-model` OpenAI model name (default `gpt-4o-mini`)
 - `--ollama-model` Ollama model name (default `llama3.1`)
 - `--keep-temp` keep temp artifacts
+- `--transcript-only` skip summarization and print transcript
 - `--log-level <error|warn|info>` adjust logging
 
 ## Cache behavior
