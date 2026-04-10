@@ -76,15 +76,16 @@ export class SummarizePipeline {
       await removeIfExists(paths.audioPath);
     }
 
+    if (!this.transcriptOnly && !this.summarizer) {
+      throw new Error("Summarizer is required when transcriptOnly mode is disabled");
+    }
+
     const summary = this.transcriptOnly ? null : await this.cacheableStep(
       `Summarize (${this.summarizerLabel})`,
       "green",
       () => this.cache.readSummary(paths.summaryPath),
       async () => {
-        if (!this.summarizer) {
-          throw new Error("Summarizer is required unless --transcript-only is enabled");
-        }
-        const result = await this.summarizer.summarize(transcript.value, {
+        const result = await this.summarizer!.summarize(transcript.value, {
           verbosity: this.verbosity,
           summaryFormat: this.summaryFormat,
         });
