@@ -9,6 +9,7 @@ import { FfmpegAudioExtractor } from "./media/AudioExtractor.js";
 import { WhisperTranscriber } from "./transcribe/WhisperTranscriber.js";
 import { OllamaSummarizer } from "./summarize/OllamaSummarizer.js";
 import { OpenAISummarizer } from "./summarize/OpenAISummarizer.js";
+import { CopilotSummarizer } from "./summarize/CopilotSummarizer.js";
 import { SummarizePipeline } from "./pipeline/SummarizePipeline.js";
 import { pruneCache, DEFAULT_CACHE_TTL_MS } from "./shared/fs.js";
 
@@ -18,8 +19,9 @@ program
   .name("ytsum")
   .description("Download, transcribe, and summarize a YouTube video")
   .argument("[url]", "YouTube video URL (omit when using --reconfigure)")
-  .option("--summarizer <openai|ollama>", "Summarizer backend (default from config)")
+  .option("--summarizer <openai|ollama|copilot>", "Summarizer backend (default from config)")
   .option("--openai-model <model>", "OpenAI model", "gpt-4o-mini")
+  .option("--copilot-model <model>", "GitHub Copilot model", "openai/gpt-4.1-mini")
   .option("--ollama-model <model>", "Ollama model", "gemma3:4b")
   .option("--verbosity <concise|standard|detailed>", "Summary verbosity", "standard")
   .option("--whisper-binary <path>", "Path to whisper.cpp binary", "/usr/local/bin/whisper-cli")
@@ -39,6 +41,7 @@ program
       const config = await loadConfig({
         keepTemp: opts.keepTemp,
         openaiModel: opts.openaiModel,
+        copilotModel: opts.copilotModel,
         whisperBinary: opts.whisperBinary,
         whisperModel: opts.whisperModel,
         ollamaModel: opts.ollamaModel,
@@ -77,7 +80,11 @@ program
       const selectedSummarizer = config.summarizer;
 
       const useCache = !opts.skipCache;
-      const modelKey = selectedSummarizer === "ollama" ? config.ollamaModel : config.openaiModel;
+      const modelKey = selectedSummarizer === "ollama"
+        ? config.ollamaModel
+        : selectedSummarizer === "copilot"
+          ? config.copilotModel
+          : config.openaiModel;
       const temp = await workspacePaths(
         url,
         useCache,
@@ -111,6 +118,12 @@ program
         if (selectedSummarizer === "ollama") {
           const endpoint = "http://localhost:11434";
           return new OllamaSummarizer(config.ollamaModel, endpoint, ensureOllamaModel);
+        }
+        if (selectedSummarizer === "copilot") {
+          if (!config.copilotApiKey) {
+            throw new Error("COPILOT_API_KEY is required for copilot summarizer");
+          }
+          return new CopilotSummarizer(config.copilotApiKey, config.copilotModel);
         }
         if (!config.openaiApiKey) {
           throw new Error("OPENAI_API_KEY is required for openai summarizer");

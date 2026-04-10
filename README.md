@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/ariskox/YoutubeSummarizer/actions/workflows/ci.yml/badge.svg)](https://github.com/ariskox/YoutubeSummarizer/actions/workflows/ci.yml)
 
-A Node.js CLI that downloads a YouTube video, extracts audio, transcribes it with whisper.cpp, and summarizes the transcript using OpenAI (default) or a local Ollama model. Includes caching, configurable verbosity, summary format selection (HTML default), and interactive setup.
+A Node.js CLI that downloads a YouTube video, extracts audio, transcribes it with whisper.cpp, and summarizes the transcript using OpenAI (default), GitHub Copilot, or a local Ollama model. Includes caching, configurable verbosity, summary format selection (HTML default), and interactive setup.
 
 ## Requirements
 - Tested on macOS (Apple Silicon and Intel)
@@ -16,6 +16,7 @@ A Node.js CLI that downloads a YouTube video, extracts audio, transcribes it wit
   - Optional: `ollama` running locally — https://ollama.com/download
 - API keys (optional):
   - `OPENAI_API_KEY` for OpenAI summarization (default backend)
+  - `COPILOT_API_KEY` for GitHub Copilot summarization
 
 ## Install
 ```bash
@@ -28,7 +29,7 @@ Run interactive setup (stores config at `~/.config/ytsum/config.json`):
 ```bash
 node dist/cli.js --reconfigure
 ```
-You can override any saved value with environment variables (e.g., `OPENAI_API_KEY`, `OPENAI_MODEL`, `WHISPER_BINARY`, `WHISPER_MODEL`, `OLLAMA_MODEL`, `CACHE_DIR`, `VERBOSITY`, `SUMMARY_FORMAT`, `KEEP_TEMP`).
+You can override any saved value with environment variables (e.g., `OPENAI_API_KEY`, `OPENAI_MODEL`, `COPILOT_API_KEY`, `COPILOT_MODEL`, `WHISPER_BINARY`, `WHISPER_MODEL`, `OLLAMA_MODEL`, `CACHE_DIR`, `VERBOSITY`, `SUMMARY_FORMAT`, `KEEP_TEMP`).
 
 ## Usage
 Basic run (OpenAI default):
@@ -44,6 +45,7 @@ Select summarizer:
 ```bash
 node dist/cli.js --summarizer ollama "<url>"
 node dist/cli.js --summarizer openai "<url>"
+node dist/cli.js --summarizer copilot "<url>"
 ```
 Verbosity levels (default: `standard`; also `concise`, `detailed`):
 ```bash
@@ -64,6 +66,7 @@ Other flags:
 - `--whisper-binary` path to whisper.cpp binary (default `/usr/local/bin/whisper-cli`)
 - `--whisper-model` path to whisper model (default `/usr/local/lib/whisper-models/ggml-base.en.bin`)
 - `--openai-model` OpenAI model name (default `gpt-4o-mini`)
+- `--copilot-model` GitHub Copilot model name (default `openai/gpt-4.1-mini`)
 - `--ollama-model` Ollama model name (default `llama3.1`)
 - `--keep-temp` keep temp artifacts
 - `--log-level <error|warn|info>` adjust logging
