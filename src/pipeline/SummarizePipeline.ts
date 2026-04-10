@@ -77,7 +77,7 @@ export class SummarizePipeline {
     }
 
     if (!this.transcriptOnly && !this.summarizer) {
-      throw new Error("Summarizer is required when transcriptOnly mode is disabled");
+      throw new Error("Summarizer is required for summary generation");
     }
 
     let summary: { value: Summary; fromCache: boolean } | null = null;
@@ -103,11 +103,21 @@ export class SummarizePipeline {
       await removeIfExists(paths.summaryPath);
     }
 
+    if (summary) {
+      return {
+        videoPath: video.value.path,
+        audioPath: audio.value.path,
+        transcript: transcript.value,
+        transcriptOnly: false,
+        summary: summary.value,
+      } satisfies PipelineResult;
+    }
+
     return {
       videoPath: video.value.path,
       audioPath: audio.value.path,
       transcript: transcript.value,
-      ...(summary ? { summary: summary.value } : {}),
+      transcriptOnly: true,
     } satisfies PipelineResult;
   }
 

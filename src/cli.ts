@@ -134,7 +134,7 @@ program
       );
 
       const result = await pipeline.run(url, temp);
-      if (transcriptOnly) {
+      if (result.transcriptOnly) {
         // eslint-disable-next-line no-console
         console.log("Transcript:\n" + result.transcript.text);
       } else if (config.summaryFormat === "html") {
@@ -143,12 +143,10 @@ program
         await open("open", ["-a", "Safari", temp.summaryPath]);
         // eslint-disable-next-line no-console
         console.log(`Summary opened in Safari: ${temp.summaryPath}`);
-      } else if (result.summary) {
+      } else {
         // Always show summary regardless of log level.
         // eslint-disable-next-line no-console
         console.log("Summary:\n" + result.summary.text);
-      } else {
-        throw new Error("Summary generation did not produce an output");
       }
     } catch (error) {
       const err = error as Error;
