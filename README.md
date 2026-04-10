@@ -67,7 +67,7 @@ Other flags:
 - `--whisper-model` path to whisper model (default `/usr/local/lib/whisper-models/ggml-base.en.bin`)
 - `--openai-model` OpenAI model name (default `gpt-4o-mini`)
 - `--copilot-model` GitHub Copilot model name (default `openai/gpt-4.1-mini`)
-- `--ollama-model` Ollama model name (default `llama3.1`)
+- `--ollama-model` Ollama model name (default `gemma3:4b`)
 - `--keep-temp` keep temp artifacts
 - `--log-level <error|warn|info>` adjust logging
 
