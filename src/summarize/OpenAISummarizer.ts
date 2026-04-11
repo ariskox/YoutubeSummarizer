@@ -19,7 +19,7 @@ export class OpenAISummarizer implements Summarizer {
     options?: SummaryRequestOptions
   ): Promise<Summary> {
     const { verbosity, summaryFormat } = normalizeSummaryOptions(options);
-    const maxTokens = options?.maxTokens ?? 1536;
+    const maxCompletionTokens = options?.maxCompletionTokens ?? 1536;
     logger.info(`Summarizing transcript using OpenAI model ${this.model} (${verbosity})`);
 
     const style = buildSummaryPrompt(verbosity, summaryFormat);
@@ -36,7 +36,7 @@ export class OpenAISummarizer implements Summarizer {
           content: transcript.text,
         },
       ],
-      max_tokens: maxTokens,
+      max_tokens: maxCompletionTokens,
       temperature: 0.2,
     };
 

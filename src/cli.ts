@@ -49,6 +49,7 @@ program
   .option("--whisper-model <path>", "Path to whisper model", "/usr/local/lib/whisper-models/ggml-base.en.bin")
   .option("--cache-dir <path>", "Cache directory", undefined)
   .option("--format <html|txt>", "Summary output format", undefined)
+  .option("--max-completion-tokens <number>", "Maximum completion tokens for summary model output", (value: string) => Number.parseInt(value, 10), undefined)
   .option("--keep-temp", "Keep temp artifacts", false)
   .option("--skip-cache", "Force bypass cache", false)
   .option("--reconfigure", "Run interactive configuration and save it", false)
@@ -59,6 +60,10 @@ program
   .action(async (url, opts) => {
     try {
       setLogLevel((opts.logLevel ?? "error") as LogLevel);
+
+      if (opts.maxCompletionTokens !== undefined && (!Number.isInteger(opts.maxCompletionTokens) || opts.maxCompletionTokens <= 0)) {
+        throw new Error("--max-completion-tokens must be a positive integer");
+      }
 
       if (opts.copilotLogin) {
         logger.info("Starting GitHub login for Copilot access...");
@@ -198,7 +203,8 @@ program
         useCache,
         config.verbosity,
         `${selectedSummarizer}:${modelKey}`,
-        config.summaryFormat
+        config.summaryFormat,
+        opts.maxCompletionTokens
       );
 
       const result = await pipeline.run(url, temp);

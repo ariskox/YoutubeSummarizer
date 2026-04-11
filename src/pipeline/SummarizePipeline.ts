@@ -19,7 +19,8 @@ export class SummarizePipeline {
     private readonly useCache: boolean,
     private readonly verbosity: SummaryVerbosity,
     private readonly summarizerLabel: string,
-    private readonly summaryFormat: SummaryFormat
+    private readonly summaryFormat: SummaryFormat,
+    private readonly maxCompletionTokens?: number
   ) {
     this.formatter = new SummaryFormatter(summaryFormat);
     this.cache = new CacheManager(useCache);
@@ -81,6 +82,7 @@ export class SummarizePipeline {
       () => this.cache.readSummary(paths.summaryPath),
       async () => {
         const result = await this.summarizer.summarize(transcript.value, {
+          maxCompletionTokens: this.maxCompletionTokens,
           verbosity: this.verbosity,
           summaryFormat: this.summaryFormat,
         });

@@ -8,7 +8,7 @@ export class CopilotSummarizer implements Summarizer {
   constructor(
     private readonly apiKey: string,
     private readonly model: string,
-    private readonly endpoint: string = "https://models.inference.ai.azure.com"
+    private readonly endpoint: string = "https://api.individual.githubcopilot.com"
   ) {
     this.debug = createHttpDebugger(getLogLevel() === "debug");
   }
@@ -20,7 +20,7 @@ export class CopilotSummarizer implements Summarizer {
     options?: SummaryRequestOptions
   ): Promise<Summary> {
     const { verbosity, summaryFormat } = normalizeSummaryOptions(options);
-    const maxTokens = options?.maxTokens ?? 1536;
+    const maxCompletionTokens = options?.maxCompletionTokens ?? 1536;
     logger.info(`Summarizing transcript using GitHub Copilot model ${this.model} (${verbosity})`);
 
     const style = buildSummaryPrompt(verbosity, summaryFormat);
@@ -37,7 +37,7 @@ export class CopilotSummarizer implements Summarizer {
           content: transcript.text,
         },
       ],
-      max_tokens: maxTokens,
+      max_completion_tokens: maxCompletionTokens,
       temperature: 0.2,
     };
 
