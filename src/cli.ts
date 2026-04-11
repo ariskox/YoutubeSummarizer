@@ -1,34 +1,59 @@
 #!/usr/bin/env node
 import { execFile } from "node:child_process";
+import { spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { Command } from "commander";
-import { loadConfig, workspacePaths } from "./config.js";
+import { loadConfig, saveCopilotApiKey, workspacePaths } from "./config.js";
 import { logger, setLogLevel, LogLevel } from "./shared/logger.js";
 import { YoutubeDownloader } from "./media/YoutubeDownloader.js";
 import { FfmpegAudioExtractor } from "./media/AudioExtractor.js";
 import { WhisperTranscriber } from "./transcribe/WhisperTranscriber.js";
 import { OllamaSummarizer } from "./summarize/OllamaSummarizer.js";
 import { OpenAISummarizer } from "./summarize/OpenAISummarizer.js";
+import { CopilotSummarizer } from "./summarize/CopilotSummarizer.js";
 import { SummarizePipeline } from "./pipeline/SummarizePipeline.js";
 import { pruneCache, DEFAULT_CACHE_TTL_MS } from "./shared/fs.js";
+import { runCommand } from "./shared/exec.js";
 
 const program = new Command();
+
+const runInteractiveCommand = (command: string, args: string[]) =>
+  new Promise<void>((resolve, reject) => {
+    const child = spawn(command, args, {
+      stdio: "inherit",
+    });
+
+    child.on("error", (error) => {
+      reject(error);
+    });
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error(`Command failed: ${command} ${args.join(" ")} (code ${code})`));
+    });
+  });
 
 program
   .name("ytsum")
   .description("Download, transcribe, and summarize a YouTube video")
-  .argument("[url]", "YouTube video URL (omit when using --reconfigure)")
-  .option("--summarizer <openai|ollama>", "Summarizer backend (default from config)")
+  .argument("[url]", "YouTube video URL (omit when using --reconfigure/--copilot-login)")
+  .option("--summarizer <openai|ollama|copilot>", "Summarizer backend (default from config)")
   .option("--openai-model <model>", "OpenAI model", "gpt-4o-mini")
+  .option("--copilot-model <model>", "GitHub Copilot model", "openai/gpt-4.1-mini")
   .option("--ollama-model <model>", "Ollama model", "gemma3:4b")
   .option("--verbosity <concise|standard|detailed>", "Summary verbosity", "standard")
   .option("--whisper-binary <path>", "Path to whisper.cpp binary", "/usr/local/bin/whisper-cli")
   .option("--whisper-model <path>", "Path to whisper model", "/usr/local/lib/whisper-models/ggml-base.en.bin")
   .option("--cache-dir <path>", "Cache directory", undefined)
   .option("--format <html|txt>", "Summary output format", undefined)
+  .option("--max-completion-tokens <number>", "Maximum completion tokens for summary model output", (value: string) => Number.parseInt(value, 10), undefined)
   .option("--keep-temp", "Keep temp artifacts", false)
   .option("--skip-cache", "Force bypass cache", false)
   .option("--reconfigure", "Run interactive configuration and save it", false)
+  .option("--copilot-login", "Login with GitHub CLI and save Copilot token", false)
   .option("--clean-cache", "Delete all cached artifacts and exit (unless URL is provided)", false)
   .option("--log-level <error|warn|info>", "Log level (default: error)", "error")
   .showHelpAfterError(true)
@@ -36,9 +61,50 @@ program
     try {
       setLogLevel((opts.logLevel ?? "error") as LogLevel);
 
+      if (opts.maxCompletionTokens !== undefined && (!Number.isInteger(opts.maxCompletionTokens) || opts.maxCompletionTokens <= 0)) {
+        throw new Error("--max-completion-tokens must be a positive integer");
+      }
+
+      if (opts.copilotLogin) {
+        logger.info("Starting GitHub login for Copilot access...");
+        try {
+          await runInteractiveCommand("gh", [
+            "auth",
+            "login",
+            "--hostname",
+            "github.com",
+            "--web",
+            "--git-protocol",
+            "https",
+          ]);
+        } catch (error) {
+          const err = error as Error & { code?: string };
+          if (err.code === "ENOENT") {
+            throw new Error("GitHub CLI (`gh`) is required for --copilot-login. Install it and retry.");
+          }
+          throw error;
+        }
+        const tokenResult = await runCommand("gh", [
+          "auth",
+          "token",
+          "--hostname",
+          "github.com",
+        ]);
+        const token = tokenResult.stdout.trim();
+        if (!token) {
+          throw new Error("GitHub login succeeded but no token was returned by `gh auth token`");
+        }
+        await saveCopilotApiKey(token);
+        logger.info("Copilot token saved to config.");
+        if (!url) {
+          return;
+        }
+      }
+
       const config = await loadConfig({
         keepTemp: opts.keepTemp,
         openaiModel: opts.openaiModel,
+        copilotModel: opts.copilotModel,
         whisperBinary: opts.whisperBinary,
         whisperModel: opts.whisperModel,
         ollamaModel: opts.ollamaModel,
@@ -61,7 +127,7 @@ program
       }
 
       if (!url) {
-        throw new Error("URL is required unless using --reconfigure or --clean-cache");
+        throw new Error("URL is required unless using --reconfigure, --copilot-login, or --clean-cache");
       }
 
       if (opts.cleanCache) {
@@ -77,7 +143,11 @@ program
       const selectedSummarizer = config.summarizer;
 
       const useCache = !opts.skipCache;
-      const modelKey = selectedSummarizer === "ollama" ? config.ollamaModel : config.openaiModel;
+      const modelKey = selectedSummarizer === "ollama"
+        ? config.ollamaModel
+        : selectedSummarizer === "copilot"
+          ? config.copilotModel
+          : config.openaiModel;
       const temp = await workspacePaths(
         url,
         useCache,
@@ -112,6 +182,12 @@ program
           const endpoint = "http://localhost:11434";
           return new OllamaSummarizer(config.ollamaModel, endpoint, ensureOllamaModel);
         }
+        if (selectedSummarizer === "copilot") {
+          if (!config.copilotApiKey) {
+            throw new Error("COPILOT_API_KEY is required for copilot summarizer");
+          }
+          return new CopilotSummarizer(config.copilotApiKey, config.copilotModel);
+        }
         if (!config.openaiApiKey) {
           throw new Error("OPENAI_API_KEY is required for openai summarizer");
         }
@@ -127,7 +203,8 @@ program
         useCache,
         config.verbosity,
         `${selectedSummarizer}:${modelKey}`,
-        config.summaryFormat
+        config.summaryFormat,
+        opts.maxCompletionTokens
       );
 
       const result = await pipeline.run(url, temp);

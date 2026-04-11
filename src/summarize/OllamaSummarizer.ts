@@ -19,7 +19,7 @@ export class OllamaSummarizer implements Summarizer {
     transcript: Transcript,
     options?: SummaryRequestOptions
   ): Promise<Summary> {
-    const { maxTokens, verbosity, summaryFormat } = normalizeSummaryOptions(options);
+    const { maxCompletionTokens, verbosity, summaryFormat } = normalizeSummaryOptions(options);
     logger.info(`Summarizing transcript using Ollama model ${this.model} (${verbosity})`);
 
     if (this.modelChecker) {
@@ -31,7 +31,7 @@ export class OllamaSummarizer implements Summarizer {
     const url = `${this.endpoint}/api/generate`;
     const requestBody = {
       model: this.model,
-      prompt: `${style}\n\nTranscript:\n${transcript.text}\n\nKeep it under ${maxTokens} tokens.`,
+      prompt: `${style}\n\nTranscript:\n${transcript.text}\n\nKeep it under ${maxCompletionTokens} tokens.`,
       stream: false,
     };
 

@@ -8,13 +8,13 @@ export interface Summarizer {
 }
 
 export type SummaryRequestOptions = {
-  maxTokens?: number;
+  maxCompletionTokens?: number;
   verbosity?: SummaryVerbosity;
   summaryFormat?: SummaryFormat;
 };
 
 export const normalizeSummaryOptions = (options?: SummaryRequestOptions) => ({
-  maxTokens: options?.maxTokens ?? 512,
+  maxCompletionTokens: options?.maxCompletionTokens ?? 512,
   verbosity: options?.verbosity ?? "standard",
   summaryFormat: options?.summaryFormat ?? "txt",
 });

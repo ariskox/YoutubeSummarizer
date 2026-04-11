@@ -1,13 +1,14 @@
-import { Summary, SummaryVerbosity, SummaryFormat, Transcript } from "../shared/types.js";
+import { Summary, Transcript } from "../shared/types.js";
 import { getLogLevel, logger } from "../shared/logger.js";
 import { createHttpDebugger } from "../shared/httpDebug.js";
 import { buildSummaryPrompt } from "./SummaryPrompt.js";
 import { Summarizer, normalizeSummaryOptions, SummaryRequestOptions } from "./Summarizer.js";
 
-export class OpenAISummarizer implements Summarizer {
+export class CopilotSummarizer implements Summarizer {
   constructor(
     private readonly apiKey: string,
-    private readonly model: string
+    private readonly model: string,
+    private readonly endpoint: string = "https://api.individual.githubcopilot.com"
   ) {
     this.debug = createHttpDebugger(getLogLevel() === "debug");
   }
@@ -20,7 +21,7 @@ export class OpenAISummarizer implements Summarizer {
   ): Promise<Summary> {
     const { verbosity, summaryFormat } = normalizeSummaryOptions(options);
     const maxCompletionTokens = options?.maxCompletionTokens ?? 1536;
-    logger.info(`Summarizing transcript using OpenAI model ${this.model} (${verbosity})`);
+    logger.info(`Summarizing transcript using GitHub Copilot model ${this.model} (${verbosity})`);
 
     const style = buildSummaryPrompt(verbosity, summaryFormat);
 
@@ -36,13 +37,13 @@ export class OpenAISummarizer implements Summarizer {
           content: transcript.text,
         },
       ],
-      max_tokens: maxCompletionTokens,
+      max_completion_tokens: maxCompletionTokens,
       temperature: 0.2,
     };
 
-    const url = "https://api.openai.com/v1/chat/completions";
+    const url = `${this.endpoint}/chat/completions`;
 
-    this.debug.request("openai", {
+    this.debug.request("copilot", {
       url,
       method: "POST",
       headers: {
@@ -63,26 +64,26 @@ export class OpenAISummarizer implements Summarizer {
 
     const raw = await response.text();
 
-    this.debug.response("openai", {
+    this.debug.response("copilot", {
       status: response.status,
       headers: response.headers,
       body: raw,
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status} ${raw}`);
+      throw new Error(`GitHub Copilot API error: ${response.status} ${raw}`);
     }
 
     let json: { choices: { message: { content: string } }[]; model?: string };
     try {
       json = JSON.parse(raw) as { choices: { message: { content: string } }[]; model?: string };
     } catch {
-      throw new Error(`OpenAI API parse error: ${response.status} ${raw}`);
+      throw new Error(`GitHub Copilot API parse error: ${response.status} ${raw}`);
     }
 
     const content = json.choices?.[0]?.message?.content?.trim();
     if (!content) {
-      throw new Error("OpenAI returned an empty summary");
+      throw new Error("GitHub Copilot returned an empty summary");
     }
 
     return {
